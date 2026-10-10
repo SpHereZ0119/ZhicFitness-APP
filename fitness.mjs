@@ -34,6 +34,19 @@ function exerciseChoices(ctx, chosen = [], available = ctx.state.exercises) {
     : '<p class="muted">动作库为空，请先在动作库新增动作。</p>'}</div>`;
 }
 
+function routineExerciseChoices(ctx, routine) {
+  const chosen = routine?.exerciseIds || [];
+  const targets = new Map((routine?.exerciseTargets || []).map(target => [target.exerciseId, target]));
+  const unit = ctx.state.settings.weightUnit;
+  return `<div class="field full"><span>选择训练动作与计划目标</span>${ctx.state.exercises.length
+    ? `<div class="routine-exercise-list">${ctx.state.exercises.map(exercise => {
+      const target = targets.get(exercise.id);
+      const field = (kind, label, value, extra = '') => `<label>${label}<input aria-label="${ctx.esc(`${label}：${exercise.name}`)}" name="target-${kind}-${ctx.esc(exercise.id)}" type="number" value="${ctx.esc(value)}" ${extra}></label>`;
+      return `<div class="routine-exercise" data-routine-exercise="${ctx.esc(exercise.id)}"><label class="actions"><input type="checkbox" name="exerciseIds" value="${ctx.esc(exercise.id)}" ${chosen.includes(exercise.id) ? 'checked' : ''}>${ctx.esc(exercise.name)}</label><div class="exercise-targets">${field('sets', '计划组数', target?.sets ?? 3, 'min="1" step="1" required')}${field('reps', '计划次数', target?.reps ?? 8, 'min="1" step="1" required')}${field('weight', `计划重量（${unit}）`, target ? Number(fromKg(target.weightKg, unit).toFixed(8)) : 0, 'min="0" step="any" required')}</div></div>`;
+    }).join('')}</div>`
+    : '<p class="muted">动作库为空，请先在动作库新增动作。</p>'}</div>`;
+}
+
 export function renderFitness(ctx) {
   const { state, esc, button, empty, fmt, dateLabel } = ctx;
   const attr = id => `data-id="${esc(id)}"`;
@@ -64,8 +77,14 @@ export function renderFitness(ctx) {
     <section class="panel"><div class="section-head"><h2>训练安排</h2><span class="muted small">${state.routines.length} 项安排</span></div>${state.routines.length
       ? `<div class="list">${state.routines.map(routine => {
         const names = routine.exerciseIds.map(id => state.exercises.find(exercise => exercise.id === id)?.name).filter(Boolean);
+        const targets = new Map((routine.exerciseTargets || []).map(target => [target.exerciseId, target]));
+        const targetText = routine.exerciseIds.map(id => {
+          const exercise = state.exercises.find(record => record.id === id);
+          const target = targets.get(id);
+          return exercise && target ? `${exercise.name} · ${target.sets} 组 × ${target.reps} 次 · ${fmt(fromKg(target.weightKg, state.settings.weightUnit))} ${state.settings.weightUnit}` : exercise?.name;
+        }).filter(Boolean);
         const plans = state.plans.filter(plan => plan.link?.type === 'routine' && plan.link.id === routine.id);
-        return `<article class="row" data-routine-id="${esc(routine.id)}" ${routine.id === selectedRoutineId ? 'data-selected-routine="true"' : ''}><div class="row-main"><strong class="row-title">${esc(routine.name)}</strong><div class="row-meta"><span class="badge">${weekdays[routine.weekday]}</span><span>${names.length} 个动作</span>${plans.map(plan => `<span>计划 ${esc(dateLabel(plan.date))} · ${plan.status === 'done' ? '已完成' : '待完成'}</span>`).join('')}</div><p class="muted small">${esc(names.join(' · ') || '尚未选择动作')}</p></div><div class="actions">${button('开始这次训练', 'fit-start', `data-routine-id="${esc(routine.id)}"`, 'small')}${button('安排到计划', 'fit-plan', attr(routine.id), 'small')}${button('编辑安排', 'fit-routine', attr(routine.id), 'ghost small')}${button('删除安排', 'fit-delete-routine', attr(routine.id), 'ghost small')}</div></article>`;
+        return `<article class="row" data-routine-id="${esc(routine.id)}" ${routine.id === selectedRoutineId ? 'data-selected-routine="true"' : ''}><div class="row-main"><strong class="row-title">${esc(routine.name)}</strong><div class="row-meta"><span class="badge">${weekdays[routine.weekday]}</span><span>${names.length} 个动作</span>${plans.map(plan => `<span>计划 ${esc(dateLabel(plan.date))} · ${plan.status === 'done' ? '已完成' : '待完成'}</span>`).join('')}</div><p class="muted small">${esc(targetText.join(' · ') || '尚未选择动作')}</p></div><div class="actions">${button('开始这次训练', 'fit-start', `data-routine-id="${esc(routine.id)}"`, 'small')}${button('安排到计划', 'fit-plan', attr(routine.id), 'small')}${button('编辑安排', 'fit-routine', attr(routine.id), 'ghost small')}${button('删除安排', 'fit-delete-routine', attr(routine.id), 'ghost small')}</div></article>`;
       }).join('')}</div>`
       : empty('按自己的节奏，为一周安排训练。', '新增训练安排', 'fit-routine')}</section>`;
 }
@@ -79,9 +98,11 @@ function renderSession(ctx, session) {
     <section class="panel" data-session-detail="${esc(session.id)}"><div class="section-head"><h2>${esc(session.name)}</h2><span class="badge ${session.status === 'done' ? 'teal' : 'orange'}">${session.status === 'done' ? '已完成' : '进行中'}</span></div><div class="row-meta"><span>${esc(dateLabel(session.date))}</span><span>${setCount} 组实际训练</span><span>重量单位 ${unit}</span></div><p class="muted small">每次保存一组后，都会保存在本机。可以稍后从训练记录继续。</p></section>
     ${session.entries.map(entry => {
       const entryAttr = `${attr} data-entry-id="${esc(entry.id)}"`;
+      const target = state.routines.find(routine => routine.id === session.routineId)?.exerciseTargets?.find(item => item.exerciseId === entry.exerciseId);
+      const targetText = target ? `<p class="muted small">计划：${target.sets} 组 × ${target.reps} 次 · ${fmt(fromKg(target.weightKg, unit))} ${unit}</p>` : '';
       return `<section class="panel" data-entry-id="${esc(entry.id)}"><div class="section-head"><h2>${esc(entry.name)}</h2><div class="actions">${button('新增一组', 'fit-set', entryAttr, 'small')}${button('移除训练动作', 'fit-delete-entry', entryAttr, 'ghost small')}</div></div>${entry.sets.length
         ? `<div class="table-wrap"><table><thead><tr><th>组次</th><th>次数</th><th>重量（${unit}）</th><th>操作</th></tr></thead><tbody>${entry.sets.map((set, index) => `<tr data-set-id="${esc(set.id)}"><td>第 ${index + 1} 组</td><td data-testid="set-reps">${set.reps} 次</td><td data-testid="set-weight">${fmt(fromKg(set.weightKg, unit))} ${unit}</td><td><div class="actions">${button('编辑组', 'fit-set', `${entryAttr} data-set-id="${esc(set.id)}"`, 'ghost small')}${button('删除组', 'fit-delete-set', `${entryAttr} data-set-id="${esc(set.id)}"`, 'ghost small')}</div></td></tr>`).join('')}</tbody></table></div>`
-        : empty('还没有记录组数。填写实际完成的次数与重量。', '新增一组', 'fit-set', entryAttr)}</section>`;
+        : empty('还没有记录组数。填写实际完成的次数与重量。', '新增一组', 'fit-set', entryAttr)}${targetText}</section>`;
     }).join('')}
     <section class="panel"><div class="toolbar">${button('添加训练动作', 'fit-add-entry', attr)}<span class="spacer"></span>${session.status === 'active'
       ? button('结束训练', 'fit-finish', `${attr}${setCount ? '' : ' disabled'}`, 'primary')
@@ -115,9 +136,15 @@ export async function handleFitness(ctx, action, target) {
     ctx.formDialog(routine ? '编辑训练安排' : '新增训练安排',
       ctx.field('安排名称', 'name', routine?.name, 'text', 'required maxlength="300"')
       + ctx.selectField('训练星期', 'weekday', weekdays, String(routine?.weekday ?? new Date().getDay()))
-      + exerciseChoices(ctx, routine?.exerciseIds || []),
+      + routineExerciseChoices(ctx, routine),
       data => ctx.commit(state => upsert(state, 'routines', {
         name: data.get('name').trim(), weekday: Number(data.get('weekday')), exerciseIds: data.getAll('exerciseIds'),
+        exerciseTargets: data.getAll('exerciseIds').map(exerciseId => ({
+          exerciseId,
+          sets: Number(data.get(`target-sets-${exerciseId}`)),
+          reps: Number(data.get(`target-reps-${exerciseId}`)),
+          weightKg: toKg(Number(data.get(`target-weight-${exerciseId}`)), state.settings.weightUnit),
+        })),
       }, id), '训练安排已保存'), '每周安排用于规划，不自动生成训练记录。');
     return true;
   }

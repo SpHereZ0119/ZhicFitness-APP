@@ -250,6 +250,12 @@ td .actions { flex-wrap: nowrap; }
 .metric strong { display: block; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .metric small { color: var(--muted); }
 .week-grid { display: grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); gap: 8px; overflow-x: auto; padding-bottom: 3px; }
+.routine-exercise-list { display: grid; gap: 10px; }
+.routine-exercise { padding: 10px 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); }
+.routine-exercise > .actions { margin-bottom: 8px; }
+.exercise-targets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-left: 25px; }
+.exercise-targets label { color: var(--muted); font-size: 11px; }
+.exercise-targets input { min-height: 32px; margin-top: 4px; padding: 5px 8px; font-size: 12px; }
 .day-card { padding: 12px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
 .day-card.today { border-color: #a8c7b4; background: #f1f7ef; }
 .day-card h3 { font-size: 12px; margin-bottom: 9px; }
@@ -310,6 +316,7 @@ details[open] > summary { margin-bottom: 12px; }
   .panel { padding: 15px; }
   .module-grid, .equal-columns { grid-template-columns: minmax(0, 1fr); }
   .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .exercise-targets { grid-template-columns: minmax(0, 1fr); margin-left: 0; }
   .stat { padding: 13px; }
   .stat-value, .stat > strong { font-size: 24px; }
   .stat-icon { display: none; }

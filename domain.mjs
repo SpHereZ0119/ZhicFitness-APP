@@ -1,5 +1,5 @@
 /**
- * Local application data, version 4. All records have id, createdAt, updatedAt.
+ * Local application data, version 5. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
@@ -7,7 +7,7 @@
  *   actualMinutes,notes,status,videoUrl}; projects:{name,status,targetDate,description};
  * workItems:{projectId,title,status};
  * milestones:{projectId,title,date,done}; devLogs:{projectId,date,content};
- * exercises:{name,notes,videoUrl}; routines:{name,weekday,exerciseIds};
+ * exercises:{name,notes,videoUrl}; routines:{name,weekday,exerciseIds,exerciseTargets};
  * sessions:{routineId,name,date,status,entries:[{id,exerciseId,name,
  *   sets:[{id,reps,weightKg}]}]}; mealPlans:{date,meal,title};
  * foods:{date,meal,name,portion,calories,protein,carbs,fat}; waters:{date,amountMl};
@@ -24,7 +24,7 @@ export const COLLECTIONS = Object.freeze([
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 
 const SETTINGS = Object.freeze({
   dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml',
@@ -120,7 +120,7 @@ function defaults(collection) {
     case 'milestones': return { projectId: '', title: '', date, done: false };
     case 'devLogs': return { projectId: '', date, content: '' };
     case 'exercises': return { name: '', notes: '', videoUrl: '' };
-    case 'routines': return { name: '', weekday: new Date().getDay(), exerciseIds: [] };
+    case 'routines': return { name: '', weekday: new Date().getDay(), exerciseIds: [], exerciseTargets: [] };
     case 'sessions': return { routineId: null, name: '', date, status: 'active', entries: [] };
     case 'mealPlans': return { date, meal: 'breakfast', title: '' };
     case 'foods': return { date, meal: 'breakfast', name: '', portion: '', calories: null, protein: null, carbs: null, fat: null };
@@ -169,6 +169,7 @@ function validateVersion(state, version) {
       const fields = Object.keys(defaults(collection)).filter(key => !(
         (version <= 2 && collection === 'studyEntries' && key === 'videoUrl')
         || (version <= 3 && collection === 'exercises' && key === 'videoUrl')
+        || (version <= 4 && collection === 'routines' && key === 'exerciseTargets')
       ));
       objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
@@ -249,6 +250,21 @@ function validateVersion(state, version) {
           arrayValue(record.exerciseIds, '训练动作');
           requireThat(new Set(record.exerciseIds).size === record.exerciseIds.length, '训练安排含有重复动作');
           for (const id of record.exerciseIds) reference(id, 'exercises', '训练动作');
+          if (version >= CURRENT_VERSION) {
+            arrayValue(record.exerciseTargets, '动作计划');
+            requireThat(record.exerciseTargets.length === record.exerciseIds.length, '动作计划必须覆盖全部训练动作');
+            const targetIds = new Set();
+            for (const target of record.exerciseTargets) {
+              objectKeys(target, ['exerciseId', 'sets', 'reps', 'weightKg'], '动作计划');
+              reference(target.exerciseId, 'exercises', '动作计划');
+              requireThat(record.exerciseIds.includes(target.exerciseId), '动作计划必须属于训练安排');
+              requireThat(!targetIds.has(target.exerciseId), '训练安排含有重复动作计划');
+              targetIds.add(target.exerciseId);
+              numberValue(target.sets, '计划组数', { positive: true, integer: true });
+              numberValue(target.reps, '计划次数', { positive: true, integer: true });
+              numberValue(target.weightKg, '计划重量');
+            }
+          }
           break;
         case 'sessions':
           reference(record.routineId, 'routines', '训练安排', true);
@@ -307,9 +323,16 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 4) {
+    validateVersion(state, 4);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      routines: state.routines.map(routine => ({ ...routine,
+        exerciseTargets: routine.exerciseIds.map(exerciseId => ({ exerciseId, sets: 3, reps: 8, weightKg: 0 })),
+      })) });
+  }
   if (state?.version === 3) {
     validateVersion(state, 3);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 4,
       exercises: state.exercises.map(exercise => ({ ...exercise, videoUrl: '' })) });
   }
   if (state?.version === 2) {
@@ -335,6 +358,12 @@ function normalizeNested(state, collection, record) {
         ? { id: uuid(), reps: 0, weightKg: 0, ...set } : set);
       return normalized;
     });
+  }
+  if (collection === 'routines' && Array.isArray(record.exerciseIds) && Array.isArray(record.exerciseTargets)) {
+    const saved = new Map(record.exerciseTargets.map(target => [target?.exerciseId, target]));
+    record.exerciseTargets = record.exerciseIds.map(exerciseId => ({
+      exerciseId, sets: 3, reps: 8, weightKg: 0, ...saved.get(exerciseId),
+    }));
   }
   return record;
 }
@@ -403,6 +432,7 @@ export function remove(state, collection, id) {
   if (collection === 'exercises') {
     for (const routine of next.routines) if (routine.exerciseIds.includes(id)) {
       routine.exerciseIds = routine.exerciseIds.filter(exerciseId => exerciseId !== id);
+      routine.exerciseTargets = routine.exerciseTargets.filter(target => target.exerciseId !== id);
       touch(routine);
     }
     for (const session of next.sessions) {
@@ -475,7 +505,7 @@ export function parseBackup(text) {
   try { backup = JSON.parse(text); } catch { fail('备份不是有效的 JSON 文件'); }
   objectKeys(backup, ['app', 'version', 'exportedAt', 'data'], '备份');
   requireThat(backup.app === 'zhic-life', '这不是本应用的备份');
-  oneOf(backup.version, [1, 2, 3, CURRENT_VERSION], '备份版本');
+  oneOf(backup.version, [1, 2, 3, 4, CURRENT_VERSION], '备份版本');
   isoTimestamp(backup.exportedAt, '备份生成时间');
   requireThat(backup.data?.version === backup.version, '备份版本与数据版本不一致');
   return migrateState(backup.data);
