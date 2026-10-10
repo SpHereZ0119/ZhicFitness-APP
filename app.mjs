@@ -47,6 +47,24 @@ async function replace(next) {
   catch(error){lastError=error.message;toast(error.message,true);return false;}
   finally{pendingWrites--;saveStatus(lastError?'保存失败：恢复失败，请重试':'已保存');}
 }
+async function manualSave() {
+  if (!repo || failedMutation || pendingWrites) { toast('请先处理未完成的保存，再手动保存。', true); return false; }
+  pendingWrites++; saveStatus('保存中');
+  let succeeded = false;
+  try {
+    state = await repo.run(current => current);
+    window.lifeChannel?.postMessage('updated');
+    toast('数据已手动保存');
+    succeeded = true;
+    return true;
+  } catch (error) {
+    toast(error.message, true);
+    return false;
+  } finally {
+    pendingWrites--;
+    saveStatus(succeeded ? (pendingWrites ? '保存中' : '已保存') : '保存失败，请重试');
+  }
+}
 const opts = (items,value) => Object.entries(items).map(([id,label])=>`<option value="${esc(id)}" ${String(value)===id?'selected':''}>${esc(label)}</option>`).join('');
 function field(label,name,value='',type='text',extra='') {
   const id = `field-${name}`;
@@ -131,7 +149,7 @@ function render() {
   const focus=focusKey(document.activeElement);
   if (!pages.some(item => item[0] === page)) page = 'home';
   const item = pages.find(item => item[0] === page);
-  app.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" href="#home"><span class="brand-icon">Z</span><span>ZHIC <small>PERSONAL SPACE</small></span></a><div class="nav-label">我的工作台</div><nav aria-label="主导航">${pages.map(([id,name,icon])=>`<a href="#${id}" ${id===page?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${name}</a>`).join('')}</nav><div class="sidebar-bottom"><span class="local-dot"></span> 本机空间 <small>专注自己的节奏</small></div></aside><main class="main"><div class="topbar"><span>我的空间 <span class="breadcrumb">/ ${item[1]}</span></span><div class="save-area"><span id="save-status" role="status">${esc(saving)}</span>${button('重试保存','retry','','subtle')}<span class="avatar">Z</span></div></div><div class="page-content"><header class="page-header"><div><p class="eyebrow">${page==='home'?'TODAY, AT YOUR PACE':'MY PERSONAL WORKSPACE'}</p><h1>${page==='home'?'把今天，过成自己的节奏。':item[1]}</h1><p class="subtitle">${page==='home'?'计划、记录、慢慢前进。你的日常都在这里。':'记录当下，让每一步都有迹可循。'}</p></div></header><div id="page-body">${empty('此处尚无记录')}</div></div></main></div>`;
+  app.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" href="#home"><span class="brand-icon">Z</span><span>ZHIC <small>PERSONAL SPACE</small></span></a><div class="nav-label">我的工作台</div><nav aria-label="主导航">${pages.map(([id,name,icon])=>`<a href="#${id}" ${id===page?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${name}</a>`).join('')}</nav><div class="sidebar-bottom"><span class="local-dot"></span> 本机空间 <small>专注自己的节奏</small></div></aside><main class="main"><div class="topbar"><span>我的空间 <span class="breadcrumb">/ ${item[1]}</span></span><div class="save-area"><span id="save-status" role="status">${esc(saving)}</span>${button('手动保存','manual-save','','subtle')}${button('重试保存','retry','','subtle')}<span class="avatar">Z</span></div></div><div class="page-content"><header class="page-header"><div><p class="eyebrow">${page==='home'?'TODAY, AT YOUR PACE':'MY PERSONAL WORKSPACE'}</p><h1>${page==='home'?'把今天，过成自己的节奏。':item[1]}</h1><p class="subtitle">${page==='home'?'计划、记录、慢慢前进。你的日常都在这里。':'记录当下，让每一步都有迹可循。'}</p></div></header><div id="page-body">${empty('此处尚无记录')}</div></div></main></div>`;
   renderPage();
   const discard=document.createElement('button');discard.type='button';discard.dataset.action='discard-failed';discard.className='ghost small';discard.textContent='放弃未保存修改';discard.hidden=!failedMutation;document.querySelector('.save-area').append(discard);
   saveStatus(saving);
@@ -156,6 +174,7 @@ document.addEventListener('click', async event => {
   const {action,id,collection}=target.dataset;
   if(action==='close'){closeDialog();return;}
   if(action==='retry'){if(failedMutation){const source=failedMutation.source;if(await commit(failedMutation.mutation,'保存已重试',true) && editor.open && source===dialogGeneration)editor.close();}else location.reload();return;}
+  if(action==='manual-save'){await manualSave();return;}
   if(action==='discard-failed'){failedMutation=null;lastError='';saveStatus(pendingWrites?'保存中':'已保存');render();toast('已保留上次成功保存的数据');return;}
   if(action==='memo')memoDialog(id);
   if(action==='plan'){if(page==='home'&&!id)selectedDate=localDate();planDialog(id);}

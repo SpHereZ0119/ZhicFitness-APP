@@ -19,6 +19,43 @@ test('阶段1：七项导航、干净空状态、真实数据库刷新读取及�
   } finally {await app.close();}
 });
 
+test('手动保存按钮明确写入当前数据并在刷新后保留', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '首页预览');
+    await p.getByRole('button', { name: '＋ 记一笔', exact: true }).click();
+    await p.getByLabel('备忘内容', { exact: true }).fill('手动保存的记录');
+    await p.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click();
+    await p.getByRole('dialog').waitFor({ state: 'hidden' });
+    await p.getByRole('button', { name: '手动保存', exact: true }).click();
+    await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
+    assert.match(await p.locator('#toast').textContent(), /手动保存/);
+    await p.reload();
+    await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
+    assert.match(await p.locator('.memo-content').textContent(), /手动保存的记录/);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+test('手动保存失败时不会显示已保存', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await p.evaluate(() => {
+      const original = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function () { throw new Error('手动保存故障注入'); };
+      window.__restoreManualSave = () => { IDBObjectStore.prototype.put = original; };
+    });
+    await p.getByRole('button', { name: '手动保存', exact: true }).click();
+    await p.locator('#save-status').filter({ hasText: '保存失败' }).waitFor();
+    assert.doesNotMatch(await p.locator('#save-status').textContent(), /^已保存$/);
+    assert.match(await p.locator('#toast').textContent(), /手动保存故障注入/);
+    await p.evaluate(() => window.__restoreManualSave());
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
 test('阶段1：排队连续写入、失败不覆盖、事务恢复及安全备份',async()=>{
   const app=await setup();
   try {
