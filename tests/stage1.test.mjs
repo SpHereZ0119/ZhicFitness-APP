@@ -9,7 +9,7 @@ test('阶段1：七项导航、干净空状态、真实数据库刷新读取及�
   const app=await setup();
   try {
     const {page,errors}=app;
-    assert.deepEqual(await page.locator('nav a').allTextContents(),['⌂首页预览','◷今日计划','⌘开发工作','↗健身计划','◒饮食计划','◇游戏娱乐','⚙数据与设置']);
+    assert.deepEqual(await page.locator('nav a').allTextContents(),['⌂首页预览','◷今日计划','▣学习计划','⌘开发工作','↗健身计划','◒饮食计划','◇游戏娱乐','⚙数据与设置']);
     assert.equal((await stateOf(page)).memos.length,0);
     for(const name of ['首页预览','今日计划','开发工作','健身计划','饮食计划','游戏娱乐','数据与设置']) await nav(page,name);
     assert.equal(await page.locator('body').getByText(/咨询|客户|跟进/).count(),0);

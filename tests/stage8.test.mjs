@@ -194,8 +194,8 @@ test('阶段8：真实 Edge 完成七导航典型流程、备份恢复和宽窄�
     ({ context } = launched);
     const page = launched.page;
     const requests = launched.requests;
-    const navNames = ['首页预览', '今日计划', '开发工作', '健身计划', '饮食计划', '游戏娱乐', '数据与设置'];
-    assert.equal(await page.locator('nav a').count(), 7);
+    const navNames = ['首页预览', '今日计划', '学习计划', '开发工作', '健身计划', '饮食计划', '游戏娱乐', '数据与设置'];
+    assert.equal(await page.locator('nav a').count(), 8);
     for (const name of navNames) assert.equal(await page.getByRole('navigation').getByRole('link', { name, exact: true }).isVisible(), true);
 
     await addMemo(page);

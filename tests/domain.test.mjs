@@ -56,7 +56,7 @@ function fullFixture() {
 test('new state is empty, has the fixed version/settings, and every expected collection', () => {
   const state = createState();
   assert.equal(validateState(state), state);
-  assert.equal(COLLECTIONS.length, 14);
+  assert.equal(COLLECTIONS.length, 16);
   assert.deepEqual(state.settings, { dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml' });
   for (const collection of COLLECTIONS) assert.deepEqual(state[collection], []);
   assert.deepEqual(Object.keys(state).sort(), ['version', 'settings', ...COLLECTIONS].sort());
@@ -355,7 +355,7 @@ test('backup round-trip contains every module, settings, stable IDs and associat
   const { state } = fullFixture();
   const backup = makeBackup(freeze(state));
   assert.equal(backup.app, 'zhic-life');
-  assert.equal(backup.version, 1);
+  assert.equal(backup.version, 2);
   assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
   const restored = parseBackup(JSON.stringify(backup));
   assert.deepEqual(restored, state);
@@ -370,7 +370,7 @@ test('backup previews enumerate all record counts without inventing or mutating 
   const { state } = fullFixture();
   const counts = previewBackup(freeze(state));
   assert.deepEqual(Object.keys(counts), COLLECTIONS);
-  for (const collection of COLLECTIONS) assert.equal(counts[collection], 1);
+  for (const collection of COLLECTIONS) assert.equal(counts[collection], ['studyTopics', 'studyEntries'].includes(collection) ? 0 : 1);
 });
 
 test('corrupt JSON, wrong app, unsupported versions and missing envelope fields are rejected', () => {
@@ -379,8 +379,8 @@ test('corrupt JSON, wrong app, unsupported versions and missing envelope fields 
   for (const text of ['{', 'null', '[]', 'false', '"string"', '{}']) assert.throws(() => parseBackup(text));
   const changes = [
     backup => { backup.app = 'other'; },
-    backup => { backup.version = 2; },
-    backup => { backup.data.version = 2; },
+    backup => { backup.version = 3; },
+    backup => { backup.data.version = 1; },
     backup => { delete backup.exportedAt; },
     backup => { backup.exportedAt = '2026-02-30'; },
     backup => { backup.unknown = true; },

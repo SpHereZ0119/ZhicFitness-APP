@@ -4,14 +4,15 @@ import { renderDevelopment, handleDevelopment, openProject } from './development
 import { renderFitness, handleFitness, openRoutine } from './fitness.mjs';
 import { renderDiet, handleDiet, openMealPlan } from './diet.mjs';
 import { renderGaming, handleGaming, openGame } from './gaming.mjs';
+import { renderLearning, handleLearning, openStudy } from './learning.mjs';
 import { renderSettings, handleSettings, handleSettingsChange } from './settings.mjs';
 
-const pages = [ ['home','首页预览','⌂'], ['plans','今日计划','◷'], ['development','开发工作','⌘'], ['fitness','健身计划','↗'], ['diet','饮食计划','◒'], ['gaming','游戏娱乐','◇'], ['settings','数据与设置','⚙'] ];
+const pages = [ ['home','首页预览','⌂'], ['plans','今日计划','◷'], ['learning','学习计划','▣'], ['development','开发工作','⌘'], ['fitness','健身计划','↗'], ['diet','饮食计划','◒'], ['gaming','游戏娱乐','◇'], ['settings','数据与设置','⚙'] ];
 let state = createState(), repo, saving = '正在读取', page = location.hash.slice(1) || 'home';
 let selectedDate = localDate();
 let failedMutation = null, pendingWrites = 0, dialogGeneration = 0, lastError = '';
 let dialogReturnFocus = null;
-const moduleNames = {personal:'个人事项',development:'开发工作',fitness:'健身计划',diet:'饮食计划',gaming:'游戏娱乐'};
+const moduleNames = {personal:'个人事项',study:'学习计划',development:'开发工作',fitness:'健身计划',diet:'饮食计划',gaming:'游戏娱乐'};
 const priorityNames = {high:'高优先级',normal:'普通',low:'低优先级'};
 const mealNames = {breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
 const app = document.querySelector('#app');
@@ -48,10 +49,11 @@ async function replace(next) {
 }
 const opts = (items,value) => Object.entries(items).map(([id,label])=>`<option value="${esc(id)}" ${String(value)===id?'selected':''}>${esc(label)}</option>`).join('');
 function field(label,name,value='',type='text',extra='') {
-  const control = type==='textarea' ? `<textarea name="${name}" ${extra}>${esc(value)}</textarea>` : `<input name="${name}" type="${type}" value="${esc(value)}" ${extra}>`;
-  return `<div class="field ${type==='textarea'?'full':''}"><label>${esc(label)}${control}</label></div>`;
+  const id = `field-${name}`;
+  const control = type==='textarea' ? `<textarea id="${id}" name="${name}" ${extra}>${esc(value)}</textarea>` : `<input id="${id}" name="${name}" type="${type}" value="${esc(value)}" ${extra}>`;
+  return `<div class="field ${type==='textarea'?'full':''}"><label for="${id}">${esc(label)}</label>${control}</div>`;
 }
-const selectField = (label,name,items,value) => `<div class="field"><label>${esc(label)}<select name="${name}">${opts(items,value)}</select></label></div>`;
+const selectField = (label,name,items,value) => { const id = `field-${name}`; return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}" name="${name}">${opts(items,value)}</select></div>`; };
 function formDialog(title,fields,onSubmit,description='',submitLabel='保存') {
   dialogReturnFocus=focusKey(document.activeElement)||dialogReturnFocus;
   const token=++dialogGeneration;
@@ -85,7 +87,7 @@ editor.addEventListener('close',()=>{queueMicrotask(()=>restoreFocus(dialogRetur
 const dateLabel = value => {if(!value)return '未设日期';const [y,m,d]=value.split('-');return state.settings.dateFormat==='YYYY/MM/DD'?`${y}/${m}/${d}`:state.settings.dateFormat==='MM/DD/YYYY'?`${m}/${d}/${y}`:value;};
 const fmt = value => Number(value.toFixed(2)).toLocaleString('zh-CN');
 function deleteDialog(collection,id) {
-  const messages={projects:'项目、工作项、里程碑和开发日志将被删除，关联计划保留为独立事项。',games:'游戏及其游玩记录将被删除，关联计划保留为独立事项。',plans:'计划及其小步骤将被删除，模块中的原始记录会保留。',routines:'训练安排将被删除，实际训练历史会保留。',exercises:'动作将从动作库和安排中移除，训练历史的动作名称和数据会保留。'};
+  const messages={studyTopics:'学习主题及其全部学习安排将被删除，关联计划保留为独立事项。',studyEntries:'这条学习安排将被删除，关联计划保留为独立事项。',projects:'项目、工作项、里程碑和开发日志将被删除，关联计划保留为独立事项。',games:'游戏及其游玩记录将被删除，关联计划保留为独立事项。',plans:'计划及其小步骤将被删除，模块中的原始记录会保留。',routines:'训练安排将被删除，实际训练历史会保留。',exercises:'动作将从动作库和安排中移除，训练历史的动作名称和数据会保留。'};
   formDialog('删除记录',`<p class="full">${messages[collection]||'这条记录将被删除。请确认后继续。'}</p>`,()=>commit(s=>remove(s,collection,id),'记录已删除'),'','确认删除');
 }
 function memoDialog(id) {
@@ -95,9 +97,9 @@ function memoDialog(id) {
 function planDialog(id,link=null) {
   const plan=state.plans.find(item=>item.id===id);
   const title=plan?titleForPlan(state,plan):link?titleForPlan(state,{title:'',link}):'';
-  const initialModule = plan?.module || ({workItem:'development',routine:'fitness',mealPlan:'diet',game:'gaming'}[link?.type] || 'personal');
+  const initialModule = plan?.module || ({studyEntry:'study',workItem:'development',routine:'fitness',mealPlan:'diet',game:'gaming'}[link?.type] || 'personal');
   const currentLink=plan?.link||link;
-  const sourceDate=currentLink?.type==='mealPlan'?state.mealPlans.find(m=>m.id===currentLink.id)?.date:null;
+  const sourceDate=currentLink?.type==='mealPlan'?state.mealPlans.find(m=>m.id===currentLink.id)?.date:currentLink?.type==='studyEntry'?state.studyEntries.find(entry=>entry.id===currentLink.id)?.date:null;
   formDialog(plan?'编辑计划':'新增计划',
     field('计划名称','title',title,'text',currentLink?'disabled':'required maxlength="300"')+
     field('日期','date',plan?.date||sourceDate||selectedDate,'date','required')+field('开始时间（可选）','time',plan?.time||'','time')+
@@ -119,9 +121,10 @@ function homePage() {
   const today=localDate(),plans=state.plans.filter(p=>p.date===today),done=plans.filter(p=>p.status==='done').length;
   const water=fromMl(waterTotal(state,today),state.settings.waterUnit);
   const activeProjects=state.projects.filter(p=>p.status==='active'),games=state.games.filter(g=>g.status==='playing');
+  const studyEntries=state.studyEntries.filter(entry=>entry.date===today);
   const weekday=new Date(`${today}T12:00:00`).getDay();const routines=state.routines.filter(r=>r.weekday===weekday);
   const week=weekStart(today,state.settings.weekStartsOn),count=state.sessions.filter(s=>s.status==='done'&&s.date>=week&&s.date<=today).length;
-  return `<div class="toolbar"><span class="pill">${dateLabel(today)} · 我的今天</span><span class="spacer"></span>${button('＋ 新增计划','plan','','primary')}</div><div class="stat-row"><div class="stat accent"><small>今日计划</small><strong data-testid="today-progress">${done} / ${plans.length}</strong><p>${plans.length?'留出时间，一件件完成':'今天，从一个小计划开始'}</p><progress value="${done}" max="${plans.length||1}" aria-label="今日计划进度"></progress></div><div class="stat"><small>进行中的项目</small><strong>${activeProjects.length}</strong><p>专注当前的开发目标</p></div><div class="stat"><small>本周已完成训练</small><strong>${count}<small> 次</small></strong><p>保持自己的训练节奏</p></div><div class="stat teal"><small>今日已记录饮水</small><strong>${fmt(water)}<small> ${state.settings.waterUnit}</small></strong><p>按实际饮水记录</p></div></div><div class="dashboard-grid"><section class="panel"><div class="section-head"><h2>今日计划</h2><a href="#plans">查看全部 →</a></div>${planRows(today)}</section><section class="panel"><div class="section-head"><h2>快速备忘</h2>${button('＋ 记一笔','memo','','small')}</div>${state.memos.length?`<div class="list">${[...state.memos].reverse().map(m=>`<div class="row"><div class="row-main"><p class="memo-content">${esc(m.content)}</p><small class="muted">${dateLabel(localDate(new Date(m.updatedAt)))}</small></div><div class="actions">${button('编辑','memo',`data-id="${esc(m.id)}"`,'ghost small')}${button('删除','delete',`data-collection="memos" data-id="${esc(m.id)}"`,'ghost small')}</div></div>`).join('')}</div>`:empty('灵感、想法、临时小事，随手记在这里。','新增备忘','memo')}</section></div><div class="section-head module-heading"><h2>日常的不同切面</h2><span class="muted small">四个空间，同一个你</span></div><div class="module-grid">${summaryPanel('开发工作','#development',activeProjects.map(p=>p.name).join(' · ')||'还没有进行中的项目。','新建项目','project')}${summaryPanel('健身计划','#fitness',routines.map(r=>r.name).join(' · ')||'今天没有训练安排。','添加训练安排','routine')}${summaryPanel('饮食计划','#diet',`今日 ${state.foods.filter(f=>f.date===today).length} 条实际饮食记录 · 已记录热量 ${fmt(nutritionSummary(state,today).calories)} kcal`,'记录餐食','food')}${summaryPanel('游戏娱乐','#gaming',games.map(g=>`${g.name}${g.progress?' · '+g.progress:''}`).join('；')||'还没有正在玩的游戏。','添加游戏','game')}</div>`;
+  return `<div class="toolbar"><span class="pill">${dateLabel(today)} · 我的今天</span><span class="spacer"></span>${button('＋ 新增计划','plan','','primary')}</div><div class="stat-row"><div class="stat accent"><small>今日计划</small><strong data-testid="today-progress">${done} / ${plans.length}</strong><p>${plans.length?'留出时间，一件件完成':'今天，从一个小计划开始'}</p><progress value="${done}" max="${plans.length||1}" aria-label="今日计划进度"></progress></div><div class="stat"><small>进行中的项目</small><strong>${activeProjects.length}</strong><p>专注当前的开发目标</p></div><div class="stat"><small>本周已完成训练</small><strong>${count}<small> 次</small></strong><p>保持自己的训练节奏</p></div><div class="stat teal"><small>今日已记录饮水</small><strong>${fmt(water)}<small> ${state.settings.waterUnit}</small></strong><p>按实际饮水记录</p></div></div><div class="dashboard-grid"><section class="panel"><div class="section-head"><h2>今日计划</h2><a href="#plans">查看全部 →</a></div>${planRows(today)}</section><section class="panel"><div class="section-head"><h2>快速备忘</h2>${button('＋ 记一笔','memo','','small')}</div>${state.memos.length?`<div class="list">${[...state.memos].reverse().map(m=>`<div class="row"><div class="row-main"><p class="memo-content">${esc(m.content)}</p><small class="muted">${dateLabel(localDate(new Date(m.updatedAt)))}</small></div><div class="actions">${button('编辑','memo',`data-id="${esc(m.id)}"`,'ghost small')}${button('删除','delete',`data-collection="memos" data-id="${esc(m.id)}"`,'ghost small')}</div></div>`).join('')}</div>`:empty('灵感、想法、临时小事，随手记在这里。','新增备忘','memo')}</section></div><div class="section-head module-heading"><h2>日常的不同切面</h2><span class="muted small">五个空间，同一个你</span></div><div class="module-grid">${summaryPanel('学习计划','#learning',studyEntries.length?studyEntries.map(entry=>entry.title).join(' · '):'今天没有学习安排。',state.studyTopics.length?'添加学习安排':'添加学习主题',state.studyTopics.length?'study-entry':'study-topic')}${summaryPanel('开发工作','#development',activeProjects.map(p=>p.name).join(' · ')||'还没有进行中的项目。','新建项目','project')}${summaryPanel('健身计划','#fitness',routines.map(r=>r.name).join(' · ')||'今天没有训练安排。','添加训练安排','routine')}${summaryPanel('饮食计划','#diet',`今日 ${state.foods.filter(f=>f.date===today).length} 条实际饮食记录 · 已记录热量 ${fmt(nutritionSummary(state,today).calories)} kcal`,'记录餐食','food')}${summaryPanel('游戏娱乐','#gaming',games.map(g=>`${g.name}${g.progress?' · '+g.progress:''}`).join('；')||'还没有正在玩的游戏。','添加游戏','game')}</div>`;
 }
 function summaryPanel(title,href,text,label,action) {return `<section class="panel"><div class="section-head"><h2>${title}</h2><a href="${href}" aria-label="打开${title}">进入 →</a></div><p class="summary-text">${esc(text)}</p>${button(label,action,'','small')}</section>`;}
 function render() {
@@ -138,6 +141,7 @@ function renderPage() {
   const body = document.querySelector('#page-body');
   if(page==='home'){body.innerHTML=homePage();return;}
   if(page==='plans'){body.innerHTML=dateToolbar()+`<section class="panel"><div class="section-head"><h2>${dateLabel(selectedDate)} 的安排</h2><span class="muted small">有时间的优先排列 · 随时可以改期</span></div>${planRows(selectedDate)}</section>`;return;}
+  if(page==='learning'){body.innerHTML=renderLearning(context);return;}
   if(page==='development'){body.innerHTML=renderDevelopment(context);return;}
   if(page==='fitness'){body.innerHTML=renderFitness(context);return;}
   if(page==='diet'){body.innerHTML=renderDiet(context);return;}
@@ -159,6 +163,7 @@ document.addEventListener('click', async event => {
   if(action==='today'){selectedDate=localDate();render();}
   if(action==='project'){await handleDevelopment(context,'project',target);return;}
   if(action.startsWith('dev-')){await handleDevelopment(context,action,target);return;}
+  if(action==='study-entry'||action==='study-topic'||action==='study-open'||action.startsWith('study-')){if(page==='home')selectedDate=localDate();await handleLearning(context,action,target);return;}
   if(action==='routine'||action==='exercise'||action.startsWith('fit-')){await handleFitness(context,action,target);return;}
   if(action==='food'||action==='meal-plan'||action==='water'||action.startsWith('diet-')){if(page==='home')selectedDate=localDate();await handleDiet(context,action,target);return;}
   if(action==='game'||action.startsWith('game-')){await handleGaming(context,action,target);return;}
@@ -167,6 +172,7 @@ document.addEventListener('click', async event => {
     const link=state.plans.find(p=>p.id===id)?.link;
     if(!link){toast('来源已移除');return;}
     if(link.type==='workItem'){openProject(state.workItems.find(w=>w.id===link.id).projectId);location.hash='development';page='development';render();}
+    if(link.type==='studyEntry'){const entry=state.studyEntries.find(item=>item.id===link.id);openStudy(entry?.topicId);selectedDate=entry?.date || selectedDate;location.hash='learning';page='learning';render();}
     if(link.type==='routine'){openRoutine(link.id);location.hash='fitness';page='fitness';render();}
     if(link.type==='mealPlan'){selectedDate=state.mealPlans.find(m=>m.id===link.id).date;openMealPlan(link.id);location.hash='diet';page='diet';render();}
     if(link.type==='game'){openGame(link.id);location.hash='gaming';page='gaming';render();}

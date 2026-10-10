@@ -1,12 +1,35 @@
-import { createState, validateState } from './domain.mjs';
+import { createState, migrateState, validateState } from './domain.mjs';
 
 export const DATABASE_NAME = 'zhic-life-local-v1';
 export function openDatabase() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('documents');
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(new Error('无法打开本地数据库，请检查浏览器存储权限。'));
+    const request = indexedDB.open(DATABASE_NAME, 2);
+    let upgradeError;
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      const tx = request.transaction;
+      const store = db.objectStoreNames.contains('documents') ? tx.objectStore('documents') : db.createObjectStore('documents');
+      const failUpgrade = error => { upgradeError = error; tx.abort(); };
+      const current = store.get('current');
+      current.onsuccess = () => {
+        try { if (current.result) store.put(migrateState(current.result), 'current'); }
+        catch (error) { failUpgrade(error); }
+      };
+      const safety = store.get('safety');
+      safety.onsuccess = () => {
+        try {
+          if (!safety.result) return;
+          const record = safety.result;
+          if (record === null || typeof record !== 'object' || Array.isArray(record)
+            || Object.keys(record).length !== 2 || !Object.hasOwn(record, 'savedAt') || !Object.hasOwn(record, 'data')
+            || typeof record.savedAt !== 'string' || !Number.isFinite(Date.parse(record.savedAt))
+            || new Date(record.savedAt).toISOString() !== record.savedAt) throw new Error('安全备份数据无效');
+          store.put({ savedAt: record.savedAt, data: migrateState(record.data) }, 'safety');
+        } catch (error) { failUpgrade(error); }
+      };
+    };
+    request.onsuccess = () => { request.result.onversionchange = () => request.result.close(); resolve(request.result); };
+    request.onerror = () => reject(upgradeError || new Error('无法打开本地数据库，请检查浏览器存储权限。'));
     request.onblocked = () => reject(new Error('本地数据库被其他窗口占用，请关闭其他应用窗口后重试。'));
   });
 }

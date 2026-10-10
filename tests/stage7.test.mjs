@@ -107,7 +107,7 @@ test('阶段7：导出完整 JSON 后恢复空库，所有模块、ID、设置�
     await nav(p, '数据与设置');
     const backup = await downloadJson(p, '导出完整备份');
     assert.equal(backup.app, 'zhic-life');
-    assert.equal(backup.version, 1);
+    assert.equal(backup.version, 2);
     assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
     assert.deepEqual(backup.data, expected);
     await putState(p, createState());

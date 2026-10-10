@@ -1,9 +1,11 @@
 /**
- * Local application data, version 1. All records have id, createdAt, updatedAt.
+ * Local application data, version 2. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
- * projects:{name,status,targetDate,description}; workItems:{projectId,title,status};
+ * studyTopics:{name,goal}; studyEntries:{topicId,date,title,plannedMinutes,
+ *   actualMinutes,notes,status}; projects:{name,status,targetDate,description};
+ * workItems:{projectId,title,status};
  * milestones:{projectId,title,date,done}; devLogs:{projectId,date,content};
  * exercises:{name,notes}; routines:{name,weekday,exerciseIds};
  * sessions:{routineId,name,date,status,entries:[{id,exerciseId,name,
@@ -11,20 +13,22 @@
  * foods:{date,meal,name,portion,calories,protein,carbs,fat}; waters:{date,amountMl};
  * games:{name,status,progress}; plays:{gameId,date,minutes}.
  * Plan steps are {id,title,done}; link is null or {type,id}, with type
- * workItem|routine|mealPlan|game. Actual training is stored in kg; water in ml.
+ * studyEntry|workItem|routine|mealPlan|game. Actual training is stored in kg; water in ml.
  * Historical exercise names are snapshots, not live exercise-library labels.
  */
 
 export const COLLECTIONS = Object.freeze([
-  'memos', 'plans', 'projects', 'workItems', 'milestones', 'devLogs',
+  'memos', 'plans', 'studyTopics', 'studyEntries', 'projects', 'workItems', 'milestones', 'devLogs',
   'exercises', 'routines', 'sessions', 'mealPlans', 'foods', 'waters',
   'games', 'plays',
 ]);
+const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
 
 const SETTINGS = Object.freeze({
   dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml',
 });
 const LINK_TYPES = Object.freeze({
+  studyEntry: { collection: 'studyEntries', module: 'study', title: 'title' },
   workItem: { collection: 'workItems', module: 'development', title: 'title' },
   routine: { collection: 'routines', module: 'fitness', title: 'name' },
   mealPlan: { collection: 'mealPlans', module: 'diet', title: 'title' },
@@ -100,6 +104,8 @@ function defaults(collection) {
   switch (collection) {
     case 'memos': return { content: '' };
     case 'plans': return { title: '', date, time: '', module: 'personal', priority: 'normal', status: 'pending', steps: [], link: null };
+    case 'studyTopics': return { name: '', goal: '' };
+    case 'studyEntries': return { topicId: '', date, title: '', plannedMinutes: 0, actualMinutes: 0, notes: '', status: 'pending' };
     case 'projects': return { name: '', status: 'active', targetDate: '', description: '' };
     case 'workItems': return { projectId: '', title: '', status: 'pending' };
     case 'milestones': return { projectId: '', title: '', date, done: false };
@@ -117,7 +123,7 @@ function defaults(collection) {
 }
 
 export function createState() {
-  return { version: 1, settings: { ...SETTINGS }, ...Object.fromEntries(COLLECTIONS.map(key => [key, []])) };
+  return { version: 2, settings: { ...SETTINGS }, ...Object.fromEntries(COLLECTIONS.map(key => [key, []])) };
 }
 
 function validateSettings(settings) {
@@ -128,9 +134,11 @@ function validateSettings(settings) {
   oneOf(settings.waterUnit, ['ml', 'L'], '饮水单位');
 }
 
-export function validateState(state) {
-  objectKeys(state, ['version', 'settings', ...COLLECTIONS], '应用数据');
-  requireThat(state.version === 1, '不支持的数据版本');
+function validateVersion(state, version) {
+  const collections = version === 1 ? COLLECTIONS_V1 : COLLECTIONS;
+  const links = version === 1 ? Object.fromEntries(Object.entries(LINK_TYPES).filter(([type]) => type !== 'studyEntry')) : LINK_TYPES;
+  objectKeys(state, ['version', 'settings', ...collections], '应用数据');
+  requireThat(state.version === version, '不支持的数据版本');
   validateSettings(state.settings);
   const identifiers = new Set();
   const identify = (value, label) => {
@@ -138,7 +146,7 @@ export function validateState(state) {
     requireThat(!identifiers.has(value), `${label} ID 重复`);
     identifiers.add(value);
   };
-  const refs = Object.fromEntries(COLLECTIONS.map(collection => {
+  const refs = Object.fromEntries(collections.map(collection => {
     arrayValue(state[collection], collection);
     return [collection, new Set(state[collection].map(record => record?.id))];
   }));
@@ -147,7 +155,7 @@ export function validateState(state) {
     textValue(id, label);
     requireThat(refs[collection].has(id), `${label}引用的记录不存在`);
   };
-  for (const collection of COLLECTIONS) {
+  for (const collection of collections) {
     for (const record of state[collection]) {
       objectKeys(record, [...META, ...Object.keys(defaults(collection))], collection);
       identify(record.id, collection);
@@ -160,7 +168,9 @@ export function validateState(state) {
           textValue(record.title, '计划标题');
           dateValue(record.date);
           requireThat(typeof record.time === 'string' && (record.time === '' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(record.time)), '时间格式必须为 HH:mm');
-          oneOf(record.module, ['personal', 'development', 'fitness', 'diet', 'gaming'], '所属模块');
+          oneOf(record.module, version === 1
+            ? ['personal', 'development', 'fitness', 'diet', 'gaming']
+            : ['personal', 'study', 'development', 'fitness', 'diet', 'gaming'], '所属模块');
           oneOf(record.priority, ['low', 'normal', 'high'], '优先级');
           oneOf(record.status, ['pending', 'done'], '计划状态');
           arrayValue(record.steps, '计划步骤');
@@ -172,11 +182,24 @@ export function validateState(state) {
           }
           if (record.link !== null) {
             objectKeys(record.link, ['type', 'id'], '计划关联');
-            oneOf(record.link.type, Object.keys(LINK_TYPES), '关联类型');
-            const source = LINK_TYPES[record.link.type];
+            oneOf(record.link.type, Object.keys(links), '关联类型');
+            const source = links[record.link.type];
             reference(record.link.id, source.collection, '计划关联');
             requireThat(source.module === record.module, '计划所属模块与关联记录不一致');
           }
+          break;
+        case 'studyTopics':
+          textValue(record.name, '学习主题');
+          textValue(record.goal, '学习目标');
+          break;
+        case 'studyEntries':
+          reference(record.topicId, 'studyTopics', '学习主题');
+          dateValue(record.date);
+          textValue(record.title, '学习安排');
+          numberValue(record.plannedMinutes, '计划时长', { integer: true });
+          numberValue(record.actualMinutes, '实际学习时长', { integer: true });
+          textValue(record.notes, '学习笔记', true);
+          oneOf(record.status, ['pending', 'done'], '学习状态');
           break;
         case 'projects':
           textValue(record.name, '项目名称');
@@ -265,6 +288,14 @@ export function validateState(state) {
   return state;
 }
 
+export function validateState(state) { return validateVersion(state, 2); }
+
+export function migrateState(state) {
+  if (state?.version === 2) return validateState(state);
+  validateVersion(state, 1);
+  return validateState({ ...clone(state), version: 2, studyTopics: [], studyEntries: [] });
+}
+
 function normalizeNested(state, collection, record) {
   if (collection === 'plans' && Array.isArray(record.steps)) {
     record.steps = record.steps.map(step => plainObject(step)
@@ -327,6 +358,7 @@ export function remove(state, collection, id) {
     }
   }
   if (collection === 'games') removed.set('plays', new Set(next.plays.filter(record => record.gameId === id).map(record => record.id)));
+  if (collection === 'studyTopics') removed.set('studyEntries', new Set(next.studyEntries.filter(record => record.topicId === id).map(record => record.id)));
   const now = new Date().toISOString();
   const touch = record => { record.updatedAt = record.updatedAt > now ? record.updatedAt : now; };
   for (const plan of next.plans) {
@@ -409,7 +441,7 @@ export function setSettings(state, values) {
 
 export function makeBackup(state) {
   validateState(state);
-  return { app: 'zhic-life', version: 1, exportedAt: new Date().toISOString(), data: clone(state) };
+  return { app: 'zhic-life', version: 2, exportedAt: new Date().toISOString(), data: clone(state) };
 }
 
 export function parseBackup(text) {
@@ -418,9 +450,10 @@ export function parseBackup(text) {
   try { backup = JSON.parse(text); } catch { fail('备份不是有效的 JSON 文件'); }
   objectKeys(backup, ['app', 'version', 'exportedAt', 'data'], '备份');
   requireThat(backup.app === 'zhic-life', '这不是本应用的备份');
-  requireThat(backup.version === 1, '不支持此备份版本');
+  oneOf(backup.version, [1, 2], '备份版本');
   isoTimestamp(backup.exportedAt, '备份生成时间');
-  return validateState(backup.data);
+  requireThat(backup.data?.version === backup.version, '备份版本与数据版本不一致');
+  return migrateState(backup.data);
 }
 
 export function previewBackup(state) {
