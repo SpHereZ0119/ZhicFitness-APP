@@ -355,7 +355,7 @@ test('backup round-trip contains every module, settings, stable IDs and associat
   const { state } = fullFixture();
   const backup = makeBackup(freeze(state));
   assert.equal(backup.app, 'zhic-life');
-  assert.equal(backup.version, 5);
+  assert.equal(backup.version, 6);
   assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
   const restored = parseBackup(JSON.stringify(backup));
   assert.deepEqual(restored, state);
@@ -379,7 +379,7 @@ test('corrupt JSON, wrong app, unsupported versions and missing envelope fields 
   for (const text of ['{', 'null', '[]', 'false', '"string"', '{}']) assert.throws(() => parseBackup(text));
   const changes = [
     backup => { backup.app = 'other'; },
-    backup => { backup.version = 6; },
+    backup => { backup.version = 7; },
     backup => { backup.data.version = 1; },
     backup => { delete backup.exportedAt; },
     backup => { backup.exportedAt = '2026-02-30'; },

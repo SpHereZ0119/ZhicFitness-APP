@@ -5,6 +5,22 @@ const meals = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '
 const nutrientNames = { calories: '热量', protein: '蛋白质', carbs: '碳水', fat: '脂肪' };
 export function openMealPlan(id) { selectedMealPlanId = id || null; }
 
+function imageField(ctx, record) {
+  return `<div class="field full"><label for="field-image">餐食图片（可选）</label><input id="field-image" name="image" type="file" accept="image/jpeg,image/png,image/webp">${record?.imageData ? `<div class="image-edit-preview"><img class="food-image" src="${ctx.esc(record.imageData)}" alt="当前餐食图片"><label class="inline"><input type="checkbox" name="removeImage">移除当前图片</label></div>` : '<p class="muted small">支持 JPEG、PNG 或 WebP，单张不超过 2 MB。</p>'}</div>`;
+}
+
+function readImage(file) {
+  if (!file || !file.size) return Promise.resolve('');
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('餐食图片必须是 JPEG、PNG 或 WebP 格式');
+  if (file.size > 2 * 1024 * 1024) throw new Error('餐食图片不能超过 2 MB');
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('餐食图片读取失败，请重新选择。'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function renderDiet(ctx) {
   const { state, selectedDate, esc, button, empty, dateLabel, fmt } = ctx;
   const summary = nutritionSummary(state, selectedDate);
@@ -22,7 +38,7 @@ export function renderDiet(ctx) {
       return `<section class="panel" data-meal="${meal}"><div class="section-head"><h2>${label}</h2><span class="muted small">安排与实际分开记录</span></div><div class="section-head"><h3>餐食安排</h3>${button('安排餐食', 'diet-meal-plan', mealAttr, 'small')}</div>${plans.length
         ? `<div class="list">${plans.map(record => `<article class="row" data-meal-plan-id="${esc(record.id)}" ${record.id === selectedMealPlanId ? 'data-selected-meal-plan="true"' : ''}><div class="row-main"><strong class="row-title">${esc(record.title)}</strong><div class="row-meta"><span class="badge">计划</span>${state.plans.filter(plan => plan.link?.type === 'mealPlan' && plan.link.id === record.id).map(plan => `<span>已安排 ${esc(dateLabel(plan.date))}</span>`).join('')}</div></div><div class="actions">${button('安排到计划', 'diet-plan', attr(record.id), 'small')}${button('编辑餐食安排', 'diet-meal-plan', attr(record.id), 'ghost small')}${button('删除餐食安排', 'diet-delete-meal-plan', attr(record.id), 'ghost small')}</div></article>`).join('')}</div>`
         : `<p class="muted small">还没有${label}安排。可以先记下想吃什么。</p>`}<div class="section-divider"></div><div class="section-head"><h3>实际饮食记录</h3>${button('记录餐食', 'diet-food', mealAttr, 'small')}</div>${actual.length
-        ? `<div class="list">${actual.map(record => `<article class="row" data-food-id="${esc(record.id)}"><div class="row-main"><strong class="row-title">${esc(record.name)}</strong><p class="muted small">${esc(record.portion)}</p><p class="row-meta">${esc(foodNutrition(record))}</p></div><div class="actions">${button('编辑饮食记录', 'diet-food', attr(record.id), 'ghost small')}${button('删除饮食记录', 'diet-delete-food', attr(record.id), 'ghost small')}</div></article>`).join('')}</div>`
+          ? `<div class="list">${actual.map(record => `<article class="row" data-food-id="${esc(record.id)}">${record.imageData ? `<img class="food-image" src="${esc(record.imageData)}" alt="${esc(record.name)}">` : ''}<div class="row-main"><strong class="row-title">${esc(record.name)}</strong><p class="muted small">${esc(record.portion)}</p><p class="row-meta">${esc(foodNutrition(record))}</p></div><div class="actions">${button('编辑饮食记录', 'diet-food', attr(record.id), 'ghost small')}${button('删除饮食记录', 'diet-delete-food', attr(record.id), 'ghost small')}</div></article>`).join('')}</div>`
         : `<p class="muted small">还没有实际${label}记录，记录后才会计入营养合计。</p>`}</section>`;
     }).join('')}</div>
     <section class="panel"><div class="section-head"><h2>饮水记录</h2>${button('记录饮水', 'diet-water', '', 'small')}</div><div class="toolbar"><strong data-testid="water-total">${fmt(fromMl(waterTotal(state, selectedDate), unit))} ${unit}</strong><span class="muted small">当天已记录饮水量</span></div>${waters.length
@@ -52,12 +68,18 @@ export async function handleDiet(ctx, action, target) {
       + ctx.selectField('餐次', 'meal', ctx.mealNames || meals, record?.meal || meal || 'breakfast')
       + ctx.field('食物名称', 'name', record?.name, 'text', 'required maxlength="300"')
       + ctx.field('实际份量', 'portion', record?.portion, 'text', 'required maxlength="300" placeholder="例如：一碗 / 150 g"')
+      + imageField(ctx, record)
       + numberField('calories', '热量（kcal，可选）') + numberField('protein', '蛋白质（g，可选）')
       + numberField('carbs', '碳水（g，可选）') + numberField('fat', '脂肪（g，可选）'),
-      data => ctx.commit(state => upsert(state, 'foods', {
-        date: data.get('date'), meal: data.get('meal'), name: data.get('name').trim(), portion: data.get('portion').trim(),
-        ...Object.fromEntries(Object.keys(nutrientNames).map(key => [key, data.get(key).trim() === '' ? null : Number(data.get(key))])),
-      }, id), '实际饮食记录已保存'), '营养值可留空；按你填写的实际数值累计，不自动估算。');
+      async data => {
+        const image = await readImage(data.get('image'));
+        const removeImage = data.get('removeImage') === 'on';
+        return ctx.commit(state => upsert(state, 'foods', {
+          date: data.get('date'), meal: data.get('meal'), name: data.get('name').trim(), portion: data.get('portion').trim(),
+          imageData: removeImage ? '' : image || record?.imageData || '',
+          ...Object.fromEntries(Object.keys(nutrientNames).map(key => [key, data.get(key).trim() === '' ? null : Number(data.get(key))])),
+        }, id), '实际饮食记录已保存');
+      }, '营养值可留空；按你填写的实际数值累计，不自动估算。');
     return true;
   }
   if (action === 'diet-water' || action === 'water') {

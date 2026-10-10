@@ -3,7 +3,7 @@ import { createState, migrateState, validateState } from './domain.mjs';
 export const DATABASE_NAME = 'zhic-life-local-v1';
 export function openDatabase() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, 5);
+    const request = indexedDB.open(DATABASE_NAME, 6);
     let upgradeError;
     request.onupgradeneeded = () => {
       const db = request.result;

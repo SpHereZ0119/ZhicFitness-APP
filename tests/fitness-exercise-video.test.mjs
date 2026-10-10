@@ -8,7 +8,7 @@ test('v3动作库数据迁移后保留动作说明并补齐视频字段', () => 
   delete state.exercises[0].videoUrl;
   state.version = 3;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, 6);
   assert.deepEqual(migrated.exercises[0], { ...state.exercises[0], videoUrl: '' });
 });
 

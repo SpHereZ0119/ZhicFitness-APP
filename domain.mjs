@@ -1,5 +1,5 @@
 /**
- * Local application data, version 5. All records have id, createdAt, updatedAt.
+ * Local application data, version 6. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
@@ -10,7 +10,7 @@
  * exercises:{name,notes,videoUrl}; routines:{name,weekday,exerciseIds,exerciseTargets};
  * sessions:{routineId,name,date,status,entries:[{id,exerciseId,name,
  *   sets:[{id,reps,weightKg}]}]}; mealPlans:{date,meal,title};
- * foods:{date,meal,name,portion,calories,protein,carbs,fat}; waters:{date,amountMl};
+ * foods:{date,meal,name,portion,calories,protein,carbs,fat,imageData}; waters:{date,amountMl};
  * games:{name,status,progress}; plays:{gameId,date,minutes}.
  * Plan steps are {id,title,done}; link is null or {type,id}, with type
  * studyEntry|workItem|routine|mealPlan|game. Actual training is stored in kg; water in ml.
@@ -24,7 +24,8 @@ export const COLLECTIONS = Object.freeze([
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const SETTINGS = Object.freeze({
   dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml',
@@ -61,6 +62,16 @@ function videoUrlValue(value, label = '教学视频链接') {
   let url;
   try { url = new URL(value); } catch { fail(`${label}必须是有效的 http 或 https 链接`); }
   requireThat(['http:', 'https:'].includes(url.protocol), `${label}必须是有效的 http 或 https 链接`);
+}
+function imageDataValue(value) {
+  textValue(value, '餐食图片', true);
+  if (!value) return;
+  const match = /^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  requireThat(match, '餐食图片必须是 JPEG、PNG 或 WebP 格式');
+  const base64 = match[1];
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  const bytes = Math.floor(base64.length * 3 / 4) - padding;
+  requireThat(bytes > 0 && bytes <= MAX_IMAGE_BYTES, '餐食图片不能超过 2 MB');
 }
 function oneOf(value, values, label) {
   requireThat(values.includes(value), `${label}不受支持`);
@@ -123,7 +134,7 @@ function defaults(collection) {
     case 'routines': return { name: '', weekday: new Date().getDay(), exerciseIds: [], exerciseTargets: [] };
     case 'sessions': return { routineId: null, name: '', date, status: 'active', entries: [] };
     case 'mealPlans': return { date, meal: 'breakfast', title: '' };
-    case 'foods': return { date, meal: 'breakfast', name: '', portion: '', calories: null, protein: null, carbs: null, fat: null };
+    case 'foods': return { date, meal: 'breakfast', name: '', portion: '', calories: null, protein: null, carbs: null, fat: null, imageData: '' };
     case 'waters': return { date, amountMl: 0 };
     case 'games': return { name: '', status: 'want', progress: '' };
     case 'plays': return { gameId: '', date, minutes: 0 };
@@ -170,6 +181,7 @@ function validateVersion(state, version) {
         (version <= 2 && collection === 'studyEntries' && key === 'videoUrl')
         || (version <= 3 && collection === 'exercises' && key === 'videoUrl')
         || (version <= 4 && collection === 'routines' && key === 'exerciseTargets')
+        || (version <= 5 && collection === 'foods' && key === 'imageData')
       ));
       objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
@@ -241,7 +253,7 @@ function validateVersion(state, version) {
         case 'exercises':
           textValue(record.name, '动作名称');
           textValue(record.notes, '动作说明', true);
-          if (version >= CURRENT_VERSION) videoUrlValue(record.videoUrl);
+          if (version >= 4) videoUrlValue(record.videoUrl);
           break;
         case 'routines':
           textValue(record.name, '训练安排名称');
@@ -250,7 +262,7 @@ function validateVersion(state, version) {
           arrayValue(record.exerciseIds, '训练动作');
           requireThat(new Set(record.exerciseIds).size === record.exerciseIds.length, '训练安排含有重复动作');
           for (const id of record.exerciseIds) reference(id, 'exercises', '训练动作');
-          if (version >= CURRENT_VERSION) {
+          if (version >= 5) {
             arrayValue(record.exerciseTargets, '动作计划');
             requireThat(record.exerciseTargets.length === record.exerciseIds.length, '动作计划必须覆盖全部训练动作');
             const targetIds = new Set();
@@ -298,6 +310,7 @@ function validateVersion(state, version) {
           textValue(record.name, '食物名称');
           textValue(record.portion, '食物份量');
           for (const nutrient of NUTRIENTS) if (record[nutrient] !== null) numberValue(record[nutrient], nutrient);
+          if (version >= CURRENT_VERSION) imageDataValue(record.imageData);
           break;
         case 'waters':
           dateValue(record.date);
@@ -323,6 +336,11 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 5) {
+    validateVersion(state, 5);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      foods: state.foods.map(food => ({ ...food, imageData: '' })) });
+  }
   if (state?.version === 4) {
     validateVersion(state, 4);
     return validateState({ ...clone(state), version: CURRENT_VERSION,
@@ -505,7 +523,7 @@ export function parseBackup(text) {
   try { backup = JSON.parse(text); } catch { fail('备份不是有效的 JSON 文件'); }
   objectKeys(backup, ['app', 'version', 'exportedAt', 'data'], '备份');
   requireThat(backup.app === 'zhic-life', '这不是本应用的备份');
-  oneOf(backup.version, [1, 2, 3, 4, CURRENT_VERSION], '备份版本');
+  oneOf(backup.version, [1, 2, 3, 4, 5, CURRENT_VERSION], '备份版本');
   isoTimestamp(backup.exportedAt, '备份生成时间');
   requireThat(backup.data?.version === backup.version, '备份版本与数据版本不一致');
   return migrateState(backup.data);
