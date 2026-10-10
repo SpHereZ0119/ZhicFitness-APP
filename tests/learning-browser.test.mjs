@@ -107,6 +107,29 @@ test('真实浏览器中学习主题、安排、日历日期、关联计划、�
   } finally { await app.close(); }
 });
 
+test('学习安排可配置教学视频并安全打开外部链接', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    let state = upsert(createState(), 'studyTopics', { name: '公开课', goal: '完成视频课程' });
+    const topicId = state.studyTopics[0].id;
+    state = upsert(state, 'studyEntries', {
+      topicId, date: '2026-10-10', title: '观看第一讲', videoUrl: 'https://video.example.test/lesson-1',
+    });
+    await restoreStudyFixture(p, state);
+    const link = p.locator('[data-study-entry] a.video-link');
+    assert.equal(await link.getAttribute('href'), 'https://video.example.test/lesson-1');
+    assert.equal(await link.getAttribute('target'), '_blank');
+    assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+    await p.locator('[data-study-entry]').getByRole('button', { name: '编辑安排', exact: true }).click();
+    await p.getByLabel('教学视频链接（可选）', { exact: true }).fill('http://video.example.test/lesson-2');
+    await submit(p);
+    assert.equal((await stateOf(p)).studyEntries[0].videoUrl, 'http://video.example.test/lesson-2');
+    assert.equal(await p.locator('[data-study-entry] a.video-link').getAttribute('href'), 'http://video.example.test/lesson-2');
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
 test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧数据阻止升级', async () => {
   const app = await setup();
   try {
@@ -117,7 +140,7 @@ test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧
     await p.goto(app.url);
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
     const migrated = await stateOf(p);
-    assert.equal(migrated.version, 2);
+    assert.equal(migrated.version, 3);
     assert.deepEqual(migrated.studyTopics, []);
     assert.deepEqual(migrated.studyEntries, []);
     assert.deepEqual(migrated.memos, legacy.memos);
@@ -127,7 +150,7 @@ test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧
       const { openDatabase, readSafety } = await import('/storage.mjs');
       const db = await openDatabase(); try { return await readSafety(db); } finally { db.close(); }
     });
-    assert.equal(migratedSafety.data.version, 2);
+    assert.equal(migratedSafety.data.version, 3);
     assert.deepEqual(migratedSafety.data.memos, legacy.memos);
     await nav(p, '数据与设置');
     const legacyBackup = { app: 'zhic-life', version: 1, exportedAt: new Date().toISOString(), data: legacy };
@@ -135,7 +158,7 @@ test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧
     await p.getByRole('dialog', { name: '备份内容预览' }).waitFor();
     await submit(p, '确认替换恢复');
     const restoredFromBackup = await stateOf(p);
-    assert.equal(restoredFromBackup.version, 2);
+    assert.equal(restoredFromBackup.version, 3);
     assert.deepEqual(restoredFromBackup.memos, legacy.memos);
     assert.deepEqual(restoredFromBackup.plans, legacy.plans);
     await nav(p, '首页预览');

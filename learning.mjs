@@ -27,11 +27,12 @@ function entryDialog(ctx, id, topicId = selectedTopicId) {
     + ctx.field('计划时长（分钟）', 'plannedMinutes', entry?.plannedMinutes ?? 0, 'number', 'min="0" step="1" required')
     + ctx.field('实际学习时长（分钟）', 'actualMinutes', entry?.actualMinutes ?? 0, 'number', 'min="0" step="1" required')
     + ctx.field('笔记 / 完成记录', 'notes', entry?.notes, 'textarea', 'maxlength="20000"')
+    + ctx.field('教学视频链接（可选）', 'videoUrl', entry?.videoUrl, 'url', 'maxlength="2000" placeholder="https://…"')
     + ctx.selectField('完成状态', 'status', statuses, entry?.status || 'pending'),
     data => ctx.commit(state => upsert(state, 'studyEntries', {
       topicId: data.get('topicId'), date: data.get('date'), title: data.get('title').trim(),
       plannedMinutes: Number(data.get('plannedMinutes')), actualMinutes: Number(data.get('actualMinutes')),
-      notes: data.get('notes').trim(), status: data.get('status'),
+      notes: data.get('notes').trim(), videoUrl: data.get('videoUrl').trim(), status: data.get('status'),
     }, id), '学习安排已保存'));
 }
 
@@ -41,7 +42,7 @@ function entryRow(ctx, entry) {
     <div class="row-main"><strong class="row-title">${ctx.esc(entry.title)}</strong>
       <div class="row-meta"><span class="badge ${entry.status === 'done' ? 'teal' : ''}">${statuses[entry.status]}</span><span>${ctx.esc(topic?.name || '未知主题')}</span><span>计划 ${entry.plannedMinutes} 分钟</span><span>实际 ${entry.actualMinutes} 分钟</span></div>
       ${entry.notes ? `<p class="note-body">${ctx.esc(entry.notes)}</p>` : ''}
-    </div><div class="actions">${ctx.button('加入今日计划', 'study-plan', attr(ctx, entry.id), 'small')}${ctx.button('编辑安排', 'study-entry', attr(ctx, entry.id), 'ghost small')}${ctx.button('删除安排', 'study-delete-entry', attr(ctx, entry.id), 'ghost small')}</div>
+    </div><div class="actions">${entry.videoUrl ? `<a class="button small video-link" href="${ctx.esc(entry.videoUrl)}" target="_blank" rel="noopener noreferrer">观看教学视频</a>` : ''}${ctx.button('加入今日计划', 'study-plan', attr(ctx, entry.id), 'small')}${ctx.button('编辑安排', 'study-entry', attr(ctx, entry.id), 'ghost small')}${ctx.button('删除安排', 'study-delete-entry', attr(ctx, entry.id), 'ghost small')}</div>
   </article>`;
 }
 

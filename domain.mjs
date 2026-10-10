@@ -1,10 +1,10 @@
 /**
- * Local application data, version 2. All records have id, createdAt, updatedAt.
+ * Local application data, version 3. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
  * studyTopics:{name,goal}; studyEntries:{topicId,date,title,plannedMinutes,
- *   actualMinutes,notes,status}; projects:{name,status,targetDate,description};
+ *   actualMinutes,notes,status,videoUrl}; projects:{name,status,targetDate,description};
  * workItems:{projectId,title,status};
  * milestones:{projectId,title,date,done}; devLogs:{projectId,date,content};
  * exercises:{name,notes}; routines:{name,weekday,exerciseIds};
@@ -23,6 +23,8 @@ export const COLLECTIONS = Object.freeze([
   'games', 'plays',
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
+const COLLECTIONS_V2 = COLLECTIONS;
+const CURRENT_VERSION = 3;
 
 const SETTINGS = Object.freeze({
   dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml',
@@ -52,6 +54,13 @@ function objectKeys(value, keys, label, { partial = false } = {}) {
 }
 function textValue(value, label, optional = false) {
   requireThat(typeof value === 'string' && (optional || value.trim().length > 0), `${label}不能为空`);
+}
+function videoUrlValue(value, label = '教学视频链接') {
+  textValue(value, label, true);
+  if (!value) return;
+  let url;
+  try { url = new URL(value); } catch { fail(`${label}必须是有效的 http 或 https 链接`); }
+  requireThat(['http:', 'https:'].includes(url.protocol), `${label}必须是有效的 http 或 https 链接`);
 }
 function oneOf(value, values, label) {
   requireThat(values.includes(value), `${label}不受支持`);
@@ -105,7 +114,7 @@ function defaults(collection) {
     case 'memos': return { content: '' };
     case 'plans': return { title: '', date, time: '', module: 'personal', priority: 'normal', status: 'pending', steps: [], link: null };
     case 'studyTopics': return { name: '', goal: '' };
-    case 'studyEntries': return { topicId: '', date, title: '', plannedMinutes: 0, actualMinutes: 0, notes: '', status: 'pending' };
+    case 'studyEntries': return { topicId: '', date, title: '', plannedMinutes: 0, actualMinutes: 0, notes: '', status: 'pending', videoUrl: '' };
     case 'projects': return { name: '', status: 'active', targetDate: '', description: '' };
     case 'workItems': return { projectId: '', title: '', status: 'pending' };
     case 'milestones': return { projectId: '', title: '', date, done: false };
@@ -123,7 +132,7 @@ function defaults(collection) {
 }
 
 export function createState() {
-  return { version: 2, settings: { ...SETTINGS }, ...Object.fromEntries(COLLECTIONS.map(key => [key, []])) };
+  return { version: CURRENT_VERSION, settings: { ...SETTINGS }, ...Object.fromEntries(COLLECTIONS.map(key => [key, []])) };
 }
 
 function validateSettings(settings) {
@@ -135,7 +144,7 @@ function validateSettings(settings) {
 }
 
 function validateVersion(state, version) {
-  const collections = version === 1 ? COLLECTIONS_V1 : COLLECTIONS;
+  const collections = version === 1 ? COLLECTIONS_V1 : COLLECTIONS_V2;
   const links = version === 1 ? Object.fromEntries(Object.entries(LINK_TYPES).filter(([type]) => type !== 'studyEntry')) : LINK_TYPES;
   objectKeys(state, ['version', 'settings', ...collections], '应用数据');
   requireThat(state.version === version, '不支持的数据版本');
@@ -157,7 +166,8 @@ function validateVersion(state, version) {
   };
   for (const collection of collections) {
     for (const record of state[collection]) {
-      objectKeys(record, [...META, ...Object.keys(defaults(collection))], collection);
+      const fields = Object.keys(defaults(collection)).filter(key => !(version === 2 && collection === 'studyEntries' && key === 'videoUrl'));
+      objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
       isoTimestamp(record.createdAt, '创建时间');
       isoTimestamp(record.updatedAt, '更新时间');
@@ -200,6 +210,7 @@ function validateVersion(state, version) {
           numberValue(record.actualMinutes, '实际学习时长', { integer: true });
           textValue(record.notes, '学习笔记', true);
           oneOf(record.status, ['pending', 'done'], '学习状态');
+          if (version >= CURRENT_VERSION) videoUrlValue(record.videoUrl);
           break;
         case 'projects':
           textValue(record.name, '项目名称');
@@ -288,12 +299,17 @@ function validateVersion(state, version) {
   return state;
 }
 
-export function validateState(state) { return validateVersion(state, 2); }
+export function validateState(state) { return validateVersion(state, CURRENT_VERSION); }
 
 export function migrateState(state) {
-  if (state?.version === 2) return validateState(state);
+  if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 2) {
+    validateVersion(state, 2);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      studyEntries: state.studyEntries.map(entry => ({ ...entry, videoUrl: '' })) });
+  }
   validateVersion(state, 1);
-  return validateState({ ...clone(state), version: 2, studyTopics: [], studyEntries: [] });
+  return migrateState({ ...clone(state), version: 2, studyTopics: [], studyEntries: [] });
 }
 
 function normalizeNested(state, collection, record) {
@@ -441,7 +457,7 @@ export function setSettings(state, values) {
 
 export function makeBackup(state) {
   validateState(state);
-  return { app: 'zhic-life', version: 2, exportedAt: new Date().toISOString(), data: clone(state) };
+  return { app: 'zhic-life', version: CURRENT_VERSION, exportedAt: new Date().toISOString(), data: clone(state) };
 }
 
 export function parseBackup(text) {
@@ -450,7 +466,7 @@ export function parseBackup(text) {
   try { backup = JSON.parse(text); } catch { fail('备份不是有效的 JSON 文件'); }
   objectKeys(backup, ['app', 'version', 'exportedAt', 'data'], '备份');
   requireThat(backup.app === 'zhic-life', '这不是本应用的备份');
-  oneOf(backup.version, [1, 2], '备份版本');
+  oneOf(backup.version, [1, 2, CURRENT_VERSION], '备份版本');
   isoTimestamp(backup.exportedAt, '备份生成时间');
   requireThat(backup.data?.version === backup.version, '备份版本与数据版本不一致');
   return migrateState(backup.data);
