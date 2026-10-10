@@ -3,10 +3,26 @@ import { upsert, fromKg, toKg, localDate } from './domain.mjs';
 let tab = 'routines';
 let selectedRoutineId = null;
 let selectedSessionId = null;
+let selectedFitnessDate = localDate();
 const weekdays = { 0: '周日', 1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六' };
 const tabs = { routines: '每周训练安排', exercises: '动作库', history: '训练记录' };
 export function openRoutine(id) { selectedRoutineId = id || null; selectedSessionId = null; tab = 'routines'; }
-export function openSession(id) { selectedSessionId = id || null; tab = 'history'; }
+export function openSession(id) {
+  selectedSessionId = id || null;
+  tab = 'history';
+}
+
+function dateToolbar(ctx) {
+  return `<div class="toolbar"><button type="button" data-action="fit-today">今天</button><label>健身日期 <input id="fitness-date" data-change="fitness-date" type="date" aria-label="健身日期" value="${ctx.esc(selectedFitnessDate)}"></label><span class="spacer"></span><span class="muted small">查看这一天的训练安排与实际记录</span></div>`;
+}
+
+function daySummary(ctx, date, routines, sessions) {
+  const { esc, dateLabel } = ctx;
+  const weekday = weekdays[new Date(`${date}T12:00:00`).getDay()];
+  const routineText = routines.length ? routines.map(routine => esc(routine.name)).join(' · ') : '没有安排训练';
+  const sessionText = sessions.length ? sessions.map(session => `${esc(session.name)}（${session.status === 'done' ? '已完成' : '进行中'}，${session.entries.reduce((count, entry) => count + entry.sets.length, 0)} 组：${session.entries.map(entry => `${esc(entry.name)} ${entry.sets.length} 组`).join('、')}）`).join(' · ') : '没有实际训练记录';
+  return `<section class="panel" data-fitness-day="${esc(date)}"><div class="section-head"><div><h2>${esc(dateLabel(date))} · 当天训练</h2><p class="muted">${weekday} · 训练安排与实际记录分开保存</p></div><span class="badge ${date === localDate() ? 'teal' : ''}">${date === localDate() ? '今天' : '历史日期'}</span></div><div class="metric-grid"><div class="metric"><small>训练安排</small><p>${routineText}</p></div><div class="metric"><small>实际训练</small><p>${sessionText}</p></div><div class="metric"><small>训练次数</small><strong>${sessions.length}</strong></div></div></section>`;
+}
 
 function exerciseChoices(ctx, chosen = [], available = ctx.state.exercises) {
   return `<div class="field full"><span>选择训练动作</span>${available.length
@@ -22,13 +38,13 @@ export function renderFitness(ctx) {
   selectedSessionId = null;
   const toolbar = `<div class="tabs" role="tablist" aria-label="健身分区">${Object.entries(tabs).map(([key, label]) => button(label, 'fit-tab', `data-tab="${key}" role="tab" aria-selected="${tab === key}"`, tab === key ? 'active' : '')).join('')}</div>`;
   if (tab === 'exercises') {
-    return toolbar + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
+    return toolbar + dateToolbar(ctx) + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
       ? `<div class="list">${state.exercises.map(exercise => `<article class="row" data-exercise-id="${esc(exercise.id)}"><div class="row-main"><strong class="row-title">${esc(exercise.name)}</strong>${exercise.notes ? `<p class="log-body muted">${esc(exercise.notes)}</p>` : ''}</div><div class="actions">${button('编辑动作', 'fit-exercise', attr(exercise.id), 'small')}${button('删除动作', 'fit-delete-exercise', attr(exercise.id), 'ghost small')}</div></article>`).join('')}</div>`
       : empty('先添加一个常练动作，例如深蹲或俯卧撑。', '新增动作', 'fit-exercise')}</section>`;
   }
   if (tab === 'history') {
-    const sessions = [...state.sessions].sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt));
-    return toolbar + `<div class="toolbar"><p class="muted">每一组实际训练，都留下自己的记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>训练历史与进行中的训练</h2><span class="muted small">${sessions.length} 次训练</span></div>${sessions.length
+    const sessions = [...state.sessions].filter(record => record.date === selectedFitnessDate).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return toolbar + dateToolbar(ctx) + `<div class="toolbar"><p class="muted">每一组实际训练，都留下自己的记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>${esc(dateLabel(selectedFitnessDate))} 的训练记录</h2><span class="muted small">${sessions.length} 次训练</span></div>${sessions.length
       ? `<div class="list">${sessions.map(record => {
         const sets = record.entries.reduce((count, entry) => count + entry.sets.length, 0);
         return `<article class="row" data-session-id="${esc(record.id)}"><div class="row-main"><strong class="row-title">${esc(record.name)}</strong><div class="row-meta"><span>${esc(dateLabel(record.date))}</span><span class="badge ${record.status === 'done' ? 'teal' : 'orange'}">${record.status === 'done' ? '已完成' : '进行中'}</span><span>${record.entries.length} 个动作 · ${sets} 组</span></div><p class="muted small">${esc(record.entries.map(entry => entry.name).join(' · '))}</p></div><div class="actions">${button(record.status === 'done' ? '查看训练' : '继续训练', 'fit-open-session', attr(record.id), 'small')}${button('编辑训练', 'fit-session', attr(record.id), 'ghost small')}${button('删除训练', 'fit-delete-session', attr(record.id), 'ghost small')}</div></article>`;
@@ -37,7 +53,9 @@ export function renderFitness(ctx) {
   }
   const today = new Date(`${localDate()}T12:00:00`).getDay();
   const days = Array.from({ length: 7 }, (_, i) => (state.settings.weekStartsOn + i) % 7);
-  return toolbar + `<div class="toolbar"><p class="muted">每周安排用于规划，实际训练单独记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start')}${button('新增训练安排', 'fit-routine', '', 'primary')}</div>
+  const dayRoutines = state.routines.filter(routine => routine.weekday === new Date(`${selectedFitnessDate}T12:00:00`).getDay());
+  const daySessions = state.sessions.filter(session => session.date === selectedFitnessDate);
+  return toolbar + dateToolbar(ctx) + daySummary(ctx, selectedFitnessDate, dayRoutines, daySessions) + `<div class="toolbar"><p class="muted">每周安排用于规划，实际训练单独记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start')}${button('新增训练安排', 'fit-routine', '', 'primary')}</div>
     <section class="panel"><div class="section-head"><h2>我的一周</h2><span class="muted small">按星期安排训练</span></div><div class="week-grid">${days.map(day => `<div class="day-card ${day === today ? 'today' : ''}"><h3>${weekdays[day]}</h3>${state.routines.filter(routine => routine.weekday === day).map(routine => `<p>${esc(routine.name)}</p>`).join('') || '<span class="muted">休息 / 未安排</span>'}</div>`).join('')}</div></section>
     <section class="panel"><div class="section-head"><h2>训练安排</h2><span class="muted small">${state.routines.length} 项安排</span></div>${state.routines.length
       ? `<div class="list">${state.routines.map(routine => {
@@ -68,9 +86,11 @@ function renderSession(ctx, session) {
 
 export async function handleFitness(ctx, action, target) {
   const { id, routineId, sessionId, entryId, setId } = target.dataset;
+  if (action === 'fit-today') { selectedFitnessDate = localDate(); selectedSessionId = null; ctx.render(); return true; }
+  if (action === 'fit-date') { selectedFitnessDate = target.value || localDate(); selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-tab') { tab = target.dataset.tab; selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-back') { openSession(null); ctx.render(); return true; }
-  if (action === 'fit-open-session') { openSession(id); ctx.render(); return true; }
+  if (action === 'fit-open-session') { selectedFitnessDate = ctx.state.sessions.find(record => record.id === id)?.date || selectedFitnessDate; openSession(id); ctx.render(); return true; }
   if (action === 'fit-exercise' || action === 'exercise') {
     const exercise = ctx.state.exercises.find(record => record.id === id);
     ctx.formDialog(exercise ? '编辑动作' : '新增动作',
@@ -97,7 +117,7 @@ export async function handleFitness(ctx, action, target) {
     const routine = ctx.state.routines.find(record => record.id === routineId);
     ctx.formDialog('开始训练',
       ctx.field('训练名称', 'name', routine?.name || '我的训练', 'text', 'required maxlength="300"')
-      + ctx.field('训练日期', 'date', localDate(), 'date', 'required')
+      + ctx.field('训练日期', 'date', selectedFitnessDate, 'date', 'required')
       + exerciseChoices(ctx, routine?.exerciseIds || []),
       async data => {
         const ids = data.getAll('exerciseIds');
@@ -106,7 +126,7 @@ export async function handleFitness(ctx, action, target) {
           routineId: routine?.id || null, name: data.get('name').trim(), date: data.get('date'), status: 'active',
           entries: ids.map(exerciseId => ({ exerciseId, name: state.exercises.find(exercise => exercise.id === exerciseId).name, sets: [] })),
         }), '训练已开始，逐组记录实际数据');
-        if (saved) { openSession(ctx.state.sessions.at(-1).id); ctx.render(); }
+        if (saved) { selectedFitnessDate = data.get('date'); openSession(ctx.state.sessions.at(-1).id); ctx.render(); }
         return saved;
       }, '开始后先保存本次训练。组数、次数与重量由你逐项记录。', '开始训练');
     return true;
@@ -115,7 +135,11 @@ export async function handleFitness(ctx, action, target) {
     const session = ctx.state.sessions.find(record => record.id === id);
     ctx.formDialog('编辑训练', ctx.field('训练名称', 'name', session.name, 'text', 'required maxlength="300"')
       + ctx.field('训练日期', 'date', session.date, 'date', 'required'),
-      data => ctx.commit(state => upsert(state, 'sessions', { name: data.get('name').trim(), date: data.get('date') }, id), '训练信息已保存'));
+      async data => {
+        const saved = await ctx.commit(state => upsert(state, 'sessions', { name: data.get('name').trim(), date: data.get('date') }, id), '训练信息已保存');
+        if (saved) { selectedFitnessDate = data.get('date'); ctx.render(); }
+        return saved;
+      });
     return true;
   }
   if (action === 'fit-set') {

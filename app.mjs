@@ -181,6 +181,7 @@ document.addEventListener('click', async event => {
 document.addEventListener('change',async event=>{
   const node=event.target;
   if(node.id==='selected-date'){selectedDate=node.value||localDate();render();return;}
+  if(node.id==='fitness-date'){await handleFitness(context,'fit-date',node);return;}
   if(await handleSettingsChange(context,event))return;
   if(node.dataset.change==='plan-done')await commit(s=>upsert(s,'plans',{status:node.checked?'done':'pending'},node.dataset.id));
   if(node.dataset.change==='step-done')await commit(s=>upsert(s,'plans',{steps:s.plans.find(p=>p.id===node.dataset.id).steps.map(step=>step.id===node.dataset.stepId?{...step,done:node.checked}:step)},node.dataset.id));
