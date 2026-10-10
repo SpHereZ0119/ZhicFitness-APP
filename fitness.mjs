@@ -16,6 +16,35 @@ function dateToolbar(ctx) {
   return `<div class="toolbar"><button type="button" data-action="fit-today">今天</button><label>健身日期 <input id="fitness-date" data-change="fitness-date" type="date" aria-label="健身日期" value="${ctx.esc(selectedFitnessDate)}"></label><span class="spacer"></span><span class="muted small">查看这一天的训练安排与实际记录</span></div>`;
 }
 
+function shiftMonth(date, delta) {
+  const current = new Date(`${date}T12:00:00`);
+  const day = current.getDate();
+  current.setDate(1);
+  current.setMonth(current.getMonth() + delta);
+  current.setDate(Math.min(day, new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate()));
+  return localDate(current);
+}
+
+function fitnessCalendar(ctx, state) {
+  const { esc, dateLabel } = ctx;
+  const [year, month] = selectedFitnessDate.split('-').map(Number);
+  const first = new Date(`${selectedFitnessDate.slice(0, 7)}-01T12:00:00`);
+  const offset = (first.getDay() - state.settings.weekStartsOn + 7) % 7;
+  const days = new Date(year, month, 0).getDate();
+  const weekdayLabels = state.settings.weekStartsOn === 1 ? ['一', '二', '三', '四', '五', '六', '日'] : ['日', '一', '二', '三', '四', '五', '六'];
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push('<span class="calendar-empty" aria-hidden="true"></span>');
+  for (let day = 1; day <= days; day++) {
+    const value = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const weekday = new Date(`${value}T12:00:00`).getDay();
+    const hasRoutine = state.routines.some(routine => routine.weekday === weekday);
+    const hasSession = state.sessions.some(session => session.date === value);
+    const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedFitnessDate ? 'selected' : '', hasRoutine || hasSession ? 'has-records' : ''].filter(Boolean).join(' ');
+    cells.push(`<button type="button" class="${classes}" data-action="fit-date" data-date="${value}" aria-label="${esc(dateLabel(value))}" ${value === selectedFitnessDate ? 'aria-current="date"' : ''}><strong>${day}</strong>${hasRoutine ? '<small>有安排</small>' : ''}${hasSession ? '<small>有记录</small>' : ''}</button>`);
+  }
+  return `<section class="panel calendar-panel" data-calendar="fitness"><div class="section-head"><h2>${year}年${month}月</h2><div class="actions"><button type="button" class="small" data-action="fit-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="fit-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedFitnessDate)} 已选中；带标记的日期有安排或实际训练。</p></section>`;
+}
+
 function exerciseDetails(ctx, exercise) {
   ctx.formDialog(`动作详情 · ${exercise.name}`, `<p class="full note-body">${ctx.esc(exercise.notes || '暂无动作说明。')}</p>${exercise.videoUrl ? `<p class="full"><a class="button video-link" href="${ctx.esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">观看教学视频</a></p>` : '<p class="full muted">尚未添加教学视频链接。</p>'}`, () => true, '', '关闭');
 }
@@ -55,13 +84,13 @@ export function renderFitness(ctx) {
   selectedSessionId = null;
   const toolbar = `<div class="tabs" role="tablist" aria-label="健身分区">${Object.entries(tabs).map(([key, label]) => button(label, 'fit-tab', `data-tab="${key}" role="tab" aria-selected="${tab === key}"`, tab === key ? 'active' : '')).join('')}</div>`;
   if (tab === 'exercises') {
-    return toolbar + dateToolbar(ctx) + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
+    return toolbar + dateToolbar(ctx) + fitnessCalendar(ctx, state) + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
       ? `<div class="list">${state.exercises.map(exercise => `<article class="row" data-exercise-id="${esc(exercise.id)}"><div class="row-main"><button type="button" class="link-button row-title" data-action="fit-exercise-details" ${attr(exercise.id)}>${esc(exercise.name)}</button>${exercise.notes ? `<p class="log-body muted">${esc(exercise.notes)}</p>` : ''}<div class="row-meta">${exercise.videoUrl ? '<span class="badge teal">有教学视频</span>' : '<span class="muted">未添加教学视频</span>'}</div></div><div class="actions">${exercise.videoUrl ? `<a class="button small video-link" href="${esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">教学视频</a>` : ''}${button('编辑动作', 'fit-exercise', attr(exercise.id), 'small')}${button('删除动作', 'fit-delete-exercise', attr(exercise.id), 'ghost small')}</div></article>`).join('')}</div>`
       : empty('先添加一个常练动作，例如深蹲或俯卧撑。', '新增动作', 'fit-exercise')}</section>`;
   }
   if (tab === 'history') {
     const sessions = [...state.sessions].filter(record => record.date === selectedFitnessDate).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    return toolbar + dateToolbar(ctx) + `<div class="toolbar"><p class="muted">每一组实际训练，都留下自己的记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>${esc(dateLabel(selectedFitnessDate))} 的训练记录</h2><span class="muted small">${sessions.length} 次训练</span></div>${sessions.length
+    return toolbar + dateToolbar(ctx) + fitnessCalendar(ctx, state) + `<div class="toolbar"><p class="muted">每一组实际训练，都留下自己的记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>${esc(dateLabel(selectedFitnessDate))} 的训练记录</h2><span class="muted small">${sessions.length} 次训练</span></div>${sessions.length
       ? `<div class="list">${sessions.map(record => {
         const sets = record.entries.reduce((count, entry) => count + entry.sets.length, 0);
         return `<article class="row" data-session-id="${esc(record.id)}"><div class="row-main"><strong class="row-title">${esc(record.name)}</strong><div class="row-meta"><span>${esc(dateLabel(record.date))}</span><span class="badge ${record.status === 'done' ? 'teal' : 'orange'}">${record.status === 'done' ? '已完成' : '进行中'}</span><span>${record.entries.length} 个动作 · ${sets} 组</span></div><p class="muted small">${esc(record.entries.map(entry => entry.name).join(' · '))}</p></div><div class="actions">${button(record.status === 'done' ? '查看训练' : '继续训练', 'fit-open-session', attr(record.id), 'small')}${button('编辑训练', 'fit-session', attr(record.id), 'ghost small')}${button('删除训练', 'fit-delete-session', attr(record.id), 'ghost small')}</div></article>`;
@@ -72,7 +101,7 @@ export function renderFitness(ctx) {
   const days = Array.from({ length: 7 }, (_, i) => (state.settings.weekStartsOn + i) % 7);
   const dayRoutines = state.routines.filter(routine => routine.weekday === new Date(`${selectedFitnessDate}T12:00:00`).getDay());
   const daySessions = state.sessions.filter(session => session.date === selectedFitnessDate);
-  return toolbar + dateToolbar(ctx) + daySummary(ctx, selectedFitnessDate, dayRoutines, daySessions) + `<div class="toolbar"><p class="muted">每周安排用于规划，实际训练单独记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start')}${button('新增训练安排', 'fit-routine', '', 'primary')}</div>
+  return toolbar + dateToolbar(ctx) + fitnessCalendar(ctx, state) + daySummary(ctx, selectedFitnessDate, dayRoutines, daySessions) + `<div class="toolbar"><p class="muted">每周安排用于规划，实际训练单独记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start')}${button('新增训练安排', 'fit-routine', '', 'primary')}</div>
     <section class="panel"><div class="section-head"><h2>我的一周</h2><span class="muted small">按星期安排训练</span></div><div class="week-grid">${days.map(day => `<div class="day-card ${day === today ? 'today' : ''}"><h3>${weekdays[day]}</h3>${state.routines.filter(routine => routine.weekday === day).map(routine => `<p>${esc(routine.name)}</p>`).join('') || '<span class="muted">休息 / 未安排</span>'}</div>`).join('')}</div></section>
     <section class="panel"><div class="section-head"><h2>训练安排</h2><span class="muted small">${state.routines.length} 项安排</span></div>${state.routines.length
       ? `<div class="list">${state.routines.map(routine => {
@@ -112,7 +141,8 @@ function renderSession(ctx, session) {
 export async function handleFitness(ctx, action, target) {
   const { id, routineId, sessionId, entryId, setId } = target.dataset;
   if (action === 'fit-today') { selectedFitnessDate = localDate(); selectedSessionId = null; ctx.render(); return true; }
-  if (action === 'fit-date') { selectedFitnessDate = target.value || localDate(); selectedSessionId = null; ctx.render(); return true; }
+  if (action === 'fit-date') { selectedFitnessDate = target.dataset.date || target.value || localDate(); selectedSessionId = null; ctx.render(); return true; }
+  if (action === 'fit-month-prev' || action === 'fit-month-next') { selectedFitnessDate = shiftMonth(selectedFitnessDate, action === 'fit-month-prev' ? -1 : 1); selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-tab') { tab = target.dataset.tab; selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-back') { openSession(null); ctx.render(); return true; }
   if (action === 'fit-open-session') { selectedFitnessDate = ctx.state.sessions.find(record => record.id === id)?.date || selectedFitnessDate; openSession(id); ctx.render(); return true; }

@@ -21,6 +21,36 @@ function readImage(file) {
   });
 }
 
+function shiftMonth(date, delta) {
+  const current = new Date(`${date}T12:00:00`);
+  const day = current.getDate();
+  current.setDate(1);
+  current.setMonth(current.getMonth() + delta);
+  current.setDate(Math.min(day, new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate()));
+  return localDate(current);
+}
+
+function dietCalendar(ctx, state, selectedDate) {
+  const { esc, dateLabel } = ctx;
+  const [year, month] = selectedDate.split('-').map(Number);
+  const first = new Date(`${selectedDate.slice(0, 7)}-01T12:00:00`);
+  const offset = (first.getDay() - state.settings.weekStartsOn + 7) % 7;
+  const days = new Date(year, month, 0).getDate();
+  const weekdayLabels = state.settings.weekStartsOn === 1 ? ['一', '二', '三', '四', '五', '六', '日'] : ['日', '一', '二', '三', '四', '五', '六'];
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push('<span class="calendar-empty" aria-hidden="true"></span>');
+  for (let day = 1; day <= days; day++) {
+    const value = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const foods = state.foods.filter(record => record.date === value).length;
+    const meals = state.mealPlans.filter(record => record.date === value).length;
+    const waters = state.waters.filter(record => record.date === value).length;
+    const marked = foods || meals || waters;
+    const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedDate ? 'selected' : '', marked ? 'has-records' : ''].filter(Boolean).join(' ');
+    cells.push(`<button type="button" class="${classes}" data-action="diet-date" data-date="${value}" aria-label="${esc(dateLabel(value))}" ${value === selectedDate ? 'aria-current="date"' : ''}><strong>${day}</strong>${meals ? `<small>${meals} 餐食安排</small>` : ''}${foods ? `<small>${foods} 条饮食</small>` : ''}${waters ? `<small>${waters} 条饮水</small>` : ''}</button>`);
+  }
+  return `<section class="panel calendar-panel" data-calendar="diet"><div class="section-head"><h2>${year}年${month}月</h2><div class="actions"><button type="button" class="small" data-action="diet-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="diet-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedDate)} 已选中；带标记的日期有餐食、饮食或饮水记录。</p></section>`;
+}
+
 export function renderDiet(ctx) {
   const { state, selectedDate, esc, button, empty, dateLabel, fmt } = ctx;
   const summary = nutritionSummary(state, selectedDate);
@@ -29,7 +59,7 @@ export function renderDiet(ctx) {
   const unit = state.settings.waterUnit;
   const attr = id => `data-id="${esc(id)}"`;
   const foodNutrition = record => Object.keys(nutrientNames).map(key => `${nutrientNames[key]} ${record[key] === null ? '未填写' : `${fmt(record[key])} ${key === 'calories' ? 'kcal' : 'g'}`}`).join(' · ');
-  return `<div class="toolbar">${button('今天', 'diet-today')}<label>查看日期 <input type="date" id="selected-date" aria-label="查看日期" value="${esc(selectedDate)}"></label><span class="spacer"></span>${button('记录饮水', 'diet-water')}${button('记录餐食', 'diet-food', '', 'primary')}</div>
+  return `<div class="toolbar">${button('今天', 'diet-today')}<label>查看日期 <input type="date" id="selected-date" aria-label="查看日期" value="${esc(selectedDate)}"></label><span class="spacer"></span>${button('记录饮水', 'diet-water')}${button('记录餐食', 'diet-food', '', 'primary')}</div>${dietCalendar(ctx, state, selectedDate)}
     <section class="panel"><div class="section-head"><h2>${esc(dateLabel(selectedDate))} · 已记录值合计</h2><span class="muted small">仅统计实际记录</span></div><div class="stat-row">${Object.entries(nutrientNames).map(([key, label]) => `<div class="stat"><small>${label}</small><strong data-testid="nutrition-${key}">${fmt(summary[key])} <small>${key === 'calories' ? 'kcal' : 'g'}</small></strong></div>`).join('')}</div><p class="${summary.partial ? 'notice' : 'muted small'}" data-testid="nutrition-completeness">${summary.partial ? '部分营养值未填写，仅累计已填写的数值。这些合计不代表全天完整摄入量。' : foods.length ? '合计来自手动填写的实际饮食记录，计划餐食不计入；未记录的摄入量不会自动估算。' : '尚无实际饮食记录。计划餐食不会计入已记录值合计。'}</p></section>
     <div class="equal-columns">${Object.entries(meals).map(([meal, label]) => {
       const plans = state.mealPlans.filter(record => record.date === selectedDate && record.meal === meal);
@@ -49,6 +79,8 @@ export function renderDiet(ctx) {
 export async function handleDiet(ctx, action, target) {
   const { id, meal } = target.dataset;
   if (action === 'diet-today') { ctx.setDate(localDate()); return true; }
+  if (action === 'diet-date') { ctx.setDate(target.dataset.date || localDate()); return true; }
+  if (action === 'diet-month-prev' || action === 'diet-month-next') { ctx.setDate(shiftMonth(ctx.selectedDate, action === 'diet-month-prev' ? -1 : 1)); return true; }
   if (action === 'diet-meal-plan' || action === 'meal-plan') {
     const record = ctx.state.mealPlans.find(item => item.id === id);
     ctx.formDialog(record ? '编辑餐食安排' : '安排餐食',

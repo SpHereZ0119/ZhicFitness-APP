@@ -256,6 +256,17 @@ td .actions { flex-wrap: nowrap; }
 .exercise-targets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-left: 25px; }
 .exercise-targets label { color: var(--muted); font-size: 11px; }
 .exercise-targets input { min-height: 32px; margin-top: 4px; padding: 5px 8px; font-size: 12px; }
+.calendar-panel { padding-bottom: 16px; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendar-weekdays { margin-bottom: 6px; color: var(--muted); font-size: 11px; text-align: center; }
+.calendar-day, .calendar-empty { min-height: 58px; }
+.calendar-day { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); color: var(--ink); text-align: left; }
+.calendar-day:hover { background: #edf3eb; border-color: #a9c2ad; }
+.calendar-day strong { font-size: 13px; }
+.calendar-day small { color: var(--muted); font-size: 10px; line-height: 1.2; }
+.calendar-day.today { border-color: #7eae8a; box-shadow: inset 0 0 0 1px #7eae8a; }
+.calendar-day.selected { background: var(--teal-soft); border-color: var(--teal); }
+.calendar-day.has-records small { color: var(--teal); }
 .day-card { padding: 12px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
 .day-card.today { border-color: #a8c7b4; background: #f1f7ef; }
 .day-card h3 { font-size: 12px; margin-bottom: 9px; }
