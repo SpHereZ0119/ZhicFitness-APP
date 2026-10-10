@@ -164,6 +164,8 @@ button svg, .button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .row:last-child { border-bottom: 0; padding-bottom: 0; }
 .row-main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .row-title { display: block; font-size: 13px; font-weight: 550; }
+.link-button { min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); text-align: left; font: inherit; }
+.link-button:hover { background: transparent; color: var(--teal); text-decoration: underline; }
 .row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 5px; color: var(--muted); font-size: 11px; }
 .row-time { min-width: 42px; flex-shrink: 0; color: #78847b; font-size: 11px; font-variant-numeric: tabular-nums; }
 .row .actions { flex-shrink: 0; }

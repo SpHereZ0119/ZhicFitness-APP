@@ -16,6 +16,10 @@ function dateToolbar(ctx) {
   return `<div class="toolbar"><button type="button" data-action="fit-today">今天</button><label>健身日期 <input id="fitness-date" data-change="fitness-date" type="date" aria-label="健身日期" value="${ctx.esc(selectedFitnessDate)}"></label><span class="spacer"></span><span class="muted small">查看这一天的训练安排与实际记录</span></div>`;
 }
 
+function exerciseDetails(ctx, exercise) {
+  ctx.formDialog(`动作详情 · ${exercise.name}`, `<p class="full note-body">${ctx.esc(exercise.notes || '暂无动作说明。')}</p>${exercise.videoUrl ? `<p class="full"><a class="button video-link" href="${ctx.esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">观看教学视频</a></p>` : '<p class="full muted">尚未添加教学视频链接。</p>'}`, () => true, '', '关闭');
+}
+
 function daySummary(ctx, date, routines, sessions) {
   const { esc, dateLabel } = ctx;
   const weekday = weekdays[new Date(`${date}T12:00:00`).getDay()];
@@ -39,7 +43,7 @@ export function renderFitness(ctx) {
   const toolbar = `<div class="tabs" role="tablist" aria-label="健身分区">${Object.entries(tabs).map(([key, label]) => button(label, 'fit-tab', `data-tab="${key}" role="tab" aria-selected="${tab === key}"`, tab === key ? 'active' : '')).join('')}</div>`;
   if (tab === 'exercises') {
     return toolbar + dateToolbar(ctx) + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
-      ? `<div class="list">${state.exercises.map(exercise => `<article class="row" data-exercise-id="${esc(exercise.id)}"><div class="row-main"><strong class="row-title">${esc(exercise.name)}</strong>${exercise.notes ? `<p class="log-body muted">${esc(exercise.notes)}</p>` : ''}</div><div class="actions">${button('编辑动作', 'fit-exercise', attr(exercise.id), 'small')}${button('删除动作', 'fit-delete-exercise', attr(exercise.id), 'ghost small')}</div></article>`).join('')}</div>`
+      ? `<div class="list">${state.exercises.map(exercise => `<article class="row" data-exercise-id="${esc(exercise.id)}"><div class="row-main"><button type="button" class="link-button row-title" data-action="fit-exercise-details" ${attr(exercise.id)}>${esc(exercise.name)}</button>${exercise.notes ? `<p class="log-body muted">${esc(exercise.notes)}</p>` : ''}<div class="row-meta">${exercise.videoUrl ? '<span class="badge teal">有教学视频</span>' : '<span class="muted">未添加教学视频</span>'}</div></div><div class="actions">${exercise.videoUrl ? `<a class="button small video-link" href="${esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">教学视频</a>` : ''}${button('编辑动作', 'fit-exercise', attr(exercise.id), 'small')}${button('删除动作', 'fit-delete-exercise', attr(exercise.id), 'ghost small')}</div></article>`).join('')}</div>`
       : empty('先添加一个常练动作，例如深蹲或俯卧撑。', '新增动作', 'fit-exercise')}</section>`;
   }
   if (tab === 'history') {
@@ -95,9 +99,15 @@ export async function handleFitness(ctx, action, target) {
     const exercise = ctx.state.exercises.find(record => record.id === id);
     ctx.formDialog(exercise ? '编辑动作' : '新增动作',
       ctx.field('动作名称', 'name', exercise?.name, 'text', 'required maxlength="300"')
-      + ctx.field('动作说明（可选）', 'notes', exercise?.notes, 'textarea', 'maxlength="10000"'),
-      data => ctx.commit(state => upsert(state, 'exercises', { name: data.get('name').trim(), notes: data.get('notes').trim() }, id), '动作已保存'),
+      + ctx.field('动作说明（可选）', 'notes', exercise?.notes, 'textarea', 'maxlength="10000"')
+      + ctx.field('教学视频链接（可选）', 'videoUrl', exercise?.videoUrl, 'url', 'maxlength="2000" placeholder="https://…"'),
+      data => ctx.commit(state => upsert(state, 'exercises', { name: data.get('name').trim(), notes: data.get('notes').trim(), videoUrl: data.get('videoUrl').trim() }, id), '动作已保存'),
       '动作库名称变更不会改写已经保存的训练历史。');
+    return true;
+  }
+  if (action === 'fit-exercise-details') {
+    const exercise = ctx.state.exercises.find(record => record.id === id);
+    if (exercise) exerciseDetails(ctx, exercise);
     return true;
   }
   if (action === 'fit-routine' || action === 'routine') {

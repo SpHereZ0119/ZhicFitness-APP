@@ -1,5 +1,5 @@
 /**
- * Local application data, version 3. All records have id, createdAt, updatedAt.
+ * Local application data, version 4. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
@@ -7,7 +7,7 @@
  *   actualMinutes,notes,status,videoUrl}; projects:{name,status,targetDate,description};
  * workItems:{projectId,title,status};
  * milestones:{projectId,title,date,done}; devLogs:{projectId,date,content};
- * exercises:{name,notes}; routines:{name,weekday,exerciseIds};
+ * exercises:{name,notes,videoUrl}; routines:{name,weekday,exerciseIds};
  * sessions:{routineId,name,date,status,entries:[{id,exerciseId,name,
  *   sets:[{id,reps,weightKg}]}]}; mealPlans:{date,meal,title};
  * foods:{date,meal,name,portion,calories,protein,carbs,fat}; waters:{date,amountMl};
@@ -24,7 +24,7 @@ export const COLLECTIONS = Object.freeze([
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 
 const SETTINGS = Object.freeze({
   dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml',
@@ -119,7 +119,7 @@ function defaults(collection) {
     case 'workItems': return { projectId: '', title: '', status: 'pending' };
     case 'milestones': return { projectId: '', title: '', date, done: false };
     case 'devLogs': return { projectId: '', date, content: '' };
-    case 'exercises': return { name: '', notes: '' };
+    case 'exercises': return { name: '', notes: '', videoUrl: '' };
     case 'routines': return { name: '', weekday: new Date().getDay(), exerciseIds: [] };
     case 'sessions': return { routineId: null, name: '', date, status: 'active', entries: [] };
     case 'mealPlans': return { date, meal: 'breakfast', title: '' };
@@ -166,7 +166,10 @@ function validateVersion(state, version) {
   };
   for (const collection of collections) {
     for (const record of state[collection]) {
-      const fields = Object.keys(defaults(collection)).filter(key => !(version === 2 && collection === 'studyEntries' && key === 'videoUrl'));
+      const fields = Object.keys(defaults(collection)).filter(key => !(
+        (version <= 2 && collection === 'studyEntries' && key === 'videoUrl')
+        || (version <= 3 && collection === 'exercises' && key === 'videoUrl')
+      ));
       objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
       isoTimestamp(record.createdAt, '创建时间');
@@ -210,7 +213,7 @@ function validateVersion(state, version) {
           numberValue(record.actualMinutes, '实际学习时长', { integer: true });
           textValue(record.notes, '学习笔记', true);
           oneOf(record.status, ['pending', 'done'], '学习状态');
-          if (version >= CURRENT_VERSION) videoUrlValue(record.videoUrl);
+          if (version >= 3) videoUrlValue(record.videoUrl);
           break;
         case 'projects':
           textValue(record.name, '项目名称');
@@ -237,6 +240,7 @@ function validateVersion(state, version) {
         case 'exercises':
           textValue(record.name, '动作名称');
           textValue(record.notes, '动作说明', true);
+          if (version >= CURRENT_VERSION) videoUrlValue(record.videoUrl);
           break;
         case 'routines':
           textValue(record.name, '训练安排名称');
@@ -303,9 +307,14 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 3) {
+    validateVersion(state, 3);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      exercises: state.exercises.map(exercise => ({ ...exercise, videoUrl: '' })) });
+  }
   if (state?.version === 2) {
     validateVersion(state, 2);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 3,
       studyEntries: state.studyEntries.map(entry => ({ ...entry, videoUrl: '' })) });
   }
   validateVersion(state, 1);
@@ -466,7 +475,7 @@ export function parseBackup(text) {
   try { backup = JSON.parse(text); } catch { fail('备份不是有效的 JSON 文件'); }
   objectKeys(backup, ['app', 'version', 'exportedAt', 'data'], '备份');
   requireThat(backup.app === 'zhic-life', '这不是本应用的备份');
-  oneOf(backup.version, [1, 2, CURRENT_VERSION], '备份版本');
+  oneOf(backup.version, [1, 2, 3, CURRENT_VERSION], '备份版本');
   isoTimestamp(backup.exportedAt, '备份生成时间');
   requireThat(backup.data?.version === backup.version, '备份版本与数据版本不一致');
   return migrateState(backup.data);
