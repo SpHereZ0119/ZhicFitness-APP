@@ -82,12 +82,17 @@ function exerciseChoices(ctx, chosen = [], available = ctx.state.exercises) {
     : '<p class="muted">动作库为空，请先在动作库新增动作。</p>'}</div>`;
 }
 
-function routineExerciseChoices(ctx, routine) {
+function routineExerciseChoices(ctx, routine, preferredGroupId = '') {
   const chosen = routine?.exerciseIds || [];
   const targets = new Map((routine?.exerciseTargets || []).map(target => [target.exerciseId, target]));
   const unit = ctx.state.settings.weightUnit;
+  const exercises = [...ctx.state.exercises].sort((a, b) => {
+    const aPriority = preferredGroupId && a.groupId === preferredGroupId ? 0 : 1;
+    const bPriority = preferredGroupId && b.groupId === preferredGroupId ? 0 : 1;
+    return aPriority - bPriority;
+  });
   return `<div class="field full"><span>选择训练动作与计划目标</span>${ctx.state.exercises.length
-    ? `<div class="routine-exercise-list">${ctx.state.exercises.map(exercise => {
+    ? `<div class="routine-exercise-list">${exercises.map(exercise => {
       const target = targets.get(exercise.id);
       const field = (kind, label, value, extra = '') => `<label>${label}<input aria-label="${ctx.esc(`${label}：${exercise.name}`)}" name="target-${kind}-${ctx.esc(exercise.id)}" type="number" value="${ctx.esc(value)}" ${extra}></label>`;
       return `<div class="routine-exercise" data-routine-exercise="${ctx.esc(exercise.id)}"><label class="actions"><input type="checkbox" name="exerciseIds" value="${ctx.esc(exercise.id)}" ${chosen.includes(exercise.id) ? 'checked' : ''}>${ctx.esc(exercise.name)}</label><div class="exercise-targets">${field('sets', '计划组数', target?.sets ?? 3, 'min="1" step="1" required')}${field('reps', '计划次数', target?.reps ?? 8, 'min="1" step="1" required')}${field('weight', `计划重量（${unit}）`, target ? Number(fromKg(target.weightKg, unit).toFixed(8)) : 0, 'min="0" step="any" required')}</div></div>`;
@@ -235,9 +240,10 @@ export async function handleFitness(ctx, action, target) {
       ctx.field('安排名称', 'name', routine?.name, 'text', 'required maxlength="300"')
       + ctx.field('具体训练日期（可选）', 'date', routine?.date || '', 'date')
       + ctx.selectField('训练星期', 'weekday', weekdays, String(routine?.weekday ?? new Date().getDay()))
-      + routineExerciseChoices(ctx, routine),
+      + ctx.selectField('优先动作组（可选）', 'groupId', { '': '不指定', ...Object.fromEntries(ctx.state.exerciseGroups.map(group => [group.id, group.name])) }, routine?.groupId || '')
+      + routineExerciseChoices(ctx, routine, routine?.groupId || ''),
       data => ctx.commit(state => upsert(state, 'routines', {
-        name: data.get('name').trim(), date: data.get('date'), weekday: Number(data.get('weekday')), exerciseIds: data.getAll('exerciseIds'),
+        name: data.get('name').trim(), date: data.get('date'), weekday: Number(data.get('weekday')), groupId: data.get('groupId') || null, exerciseIds: data.getAll('exerciseIds'),
         exerciseTargets: data.getAll('exerciseIds').map(exerciseId => ({
           exerciseId,
           sets: Number(data.get(`target-sets-${exerciseId}`)),

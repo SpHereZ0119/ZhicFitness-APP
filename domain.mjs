@@ -1,5 +1,5 @@
 /**
- * Local application data, version 7. All records have id, createdAt, updatedAt.
+ * Local application data, version 9. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
@@ -24,7 +24,7 @@ export const COLLECTIONS = Object.freeze([
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries', 'exerciseGroups'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 8;
+const CURRENT_VERSION = 9;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const SETTINGS = Object.freeze({
@@ -132,7 +132,7 @@ function defaults(collection) {
     case 'devLogs': return { projectId: '', date, content: '' };
     case 'exerciseGroups': return { name: '' };
     case 'exercises': return { name: '', notes: '', videoUrl: '', groupId: null };
-    case 'routines': return { name: '', weekday: new Date().getDay(), date: '', exerciseIds: [], exerciseTargets: [] };
+    case 'routines': return { name: '', weekday: new Date().getDay(), date: '', groupId: null, exerciseIds: [], exerciseTargets: [] };
     case 'sessions': return { routineId: null, name: '', date, status: 'active', entries: [] };
     case 'mealPlans': return { date, meal: 'breakfast', title: '' };
     case 'foods': return { date, meal: 'breakfast', name: '', portion: '', calories: null, protein: null, carbs: null, fat: null, imageData: '' };
@@ -185,6 +185,7 @@ function validateVersion(state, version) {
         || (version <= 5 && collection === 'foods' && key === 'imageData')
         || (version <= 6 && collection === 'routines' && key === 'date')
         || (version < 8 && collection === 'exercises' && key === 'groupId')
+        || (version < 9 && collection === 'routines' && key === 'groupId')
       ));
       objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
@@ -267,6 +268,7 @@ function validateVersion(state, version) {
           numberValue(record.weekday, '训练星期', { integer: true });
           requireThat(record.weekday <= 6, '训练星期必须在 0 到 6 之间');
           if (version >= 7) dateValue(record.date, '训练日期', true);
+          if (version >= 9) reference(record.groupId, 'exerciseGroups', '优先动作组', true);
           arrayValue(record.exerciseIds, '训练动作');
           requireThat(new Set(record.exerciseIds).size === record.exerciseIds.length, '训练安排含有重复动作');
           for (const id of record.exerciseIds) reference(id, 'exercises', '训练动作');
@@ -344,16 +346,24 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 8) {
+    validateVersion(state, 8);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      routines: state.routines.map(routine => ({ ...routine, groupId: null })) });
+  }
   if (state?.version === 7) {
     validateVersion(state, 7);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 8,
       exerciseGroups: state.exerciseGroups || [],
       exercises: state.exercises.map(exercise => ({ ...exercise, groupId: exercise.groupId ?? null })) });
   }
   if (state?.version === 6) {
-    validateVersion(state, 6);
-    return migrateState({ ...clone(state), version: 7,
-      routines: state.routines.map(routine => ({ ...routine, date: '' })) });
+    const legacy = clone(state);
+    delete legacy.exerciseGroups;
+    for (const routine of legacy.routines) delete routine.groupId;
+    validateVersion(legacy, 6);
+    return migrateState({ ...legacy, version: 7,
+      routines: legacy.routines.map(routine => ({ ...routine, date: '' })) });
   }
   if (state?.version === 5) {
     validateVersion(state, 5);
@@ -369,7 +379,9 @@ export function migrateState(state) {
   }
   if (state?.version === 3) {
     validateVersion(state, 3);
-    return migrateState({ ...clone(state), version: 4,
+    const legacy = clone(state);
+    delete legacy.exerciseGroups;
+    return migrateState({ ...legacy, version: 4,
       exercises: state.exercises.map(exercise => ({ ...exercise, videoUrl: '' })) });
   }
   if (state?.version === 2) {

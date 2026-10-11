@@ -267,7 +267,8 @@ test('version 6 routine data migrates with an empty date field', () => {
   for (const exercise of legacy.exercises) delete exercise.groupId;
   delete legacy.routines[0].date;
   const migrated = migrateState(legacy);
-  assert.equal(migrated.version, 8);
+  assert.equal(migrated.version, 9);
+  assert.equal(migrated.routines[0].groupId, null);
   assert.equal(migrated.routines[0].date, '');
 });
 
@@ -385,7 +386,7 @@ test('backup round-trip contains every module, settings, stable IDs and associat
   const { state } = fullFixture();
   const backup = makeBackup(freeze(state));
   assert.equal(backup.app, 'zhic-life');
-  assert.equal(backup.version, 8);
+  assert.equal(backup.version, 9);
   assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
   const restored = parseBackup(JSON.stringify(backup));
   assert.deepEqual(restored, state);
@@ -409,7 +410,7 @@ test('corrupt JSON, wrong app, unsupported versions and missing envelope fields 
   for (const text of ['{', 'null', '[]', 'false', '"string"', '{}']) assert.throws(() => parseBackup(text));
   const changes = [
     backup => { backup.app = 'other'; },
-    backup => { backup.version = 9; },
+    backup => { backup.version = 99; },
     backup => { backup.data.version = 1; },
     backup => { delete backup.exportedAt; },
     backup => { backup.exportedAt = '2026-02-30'; },

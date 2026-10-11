@@ -8,7 +8,7 @@ test('v5饮食记录迁移后补齐餐食图片字段', () => {
   delete state.foods[0].imageData;
   state.version = 5;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 8);
+  assert.equal(migrated.version, 9);
   assert.deepEqual(migrated.foods[0], { ...state.foods[0], imageData: '' });
 });
 

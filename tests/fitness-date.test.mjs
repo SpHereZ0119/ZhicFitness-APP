@@ -103,7 +103,38 @@ test('已有 v6 本地数据库首次打开时会迁移到当前数据版本', a
     }, legacy);
     await p.goto(app.url);
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
-    assert.equal((await stateOf(p)).version, 8);
+    assert.equal((await stateOf(p)).version, 9);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+test('训练安排可选择动作组并将组内动作置顶保存', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await openTab(p, '动作库');
+    await p.getByRole('button', { name: '新增动作组', exact: true }).click();
+    await p.getByLabel('动作组名称', { exact: true }).fill('腿部力量');
+    await submit(p);
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('杠铃深蹲');
+    await p.getByLabel('动作组（可选）', { exact: true }).selectOption({ label: '腿部力量' });
+    await submit(p);
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('俯卧撑');
+    await submit(p);
+    await openTab(p, '每周训练安排');
+    await p.getByRole('button', { name: '新增训练安排', exact: true }).first().click();
+    const dialog = p.getByRole('dialog');
+    await dialog.getByLabel('安排名称', { exact: true }).fill('腿部日');
+    await dialog.getByLabel('优先动作组（可选）', { exact: true }).selectOption({ label: '腿部力量' });
+    const rows = dialog.locator('.routine-exercise');
+    assert.equal(await rows.nth(0).getAttribute('data-routine-exercise'), (await stateOf(p)).exercises.find(e => e.name === '杠铃深蹲').id);
+    await dialog.getByLabel('杠铃深蹲', { exact: true }).check();
+    await submit(p);
+    const savedState = await stateOf(p);
+    assert.equal(savedState.routines.at(-1).groupId, savedState.exerciseGroups[0].id);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
