@@ -50,6 +50,7 @@ test('阶段4：动作和安排 CRUD、真实两组训练、训练中刷新后�
     await p.getByRole('button', { name: '开始训练', exact: true }).click();
     assert.equal(await p.getByRole('tab', { name: '动作库', exact: true }).getAttribute('aria-selected'), 'true');
     await createExercise(p, '杠铃深蹲');
+    await p.locator('.exercise-row').first().hover();
     await p.getByRole('button', { name: '编辑动作', exact: true }).click();
     await p.getByLabel('动作说明（可选）').fill('稳定控制动作');
     await submit(p);
@@ -108,6 +109,7 @@ test('阶段4：计划完成不制造训练，动作和安排改名删除后仍�
     await saved(p);
     await p.getByRole('button', { name: '← 返回训练记录', exact: true }).click();
     await openTab(p, '动作库');
+    await p.locator('.exercise-row').first().hover();
     await p.getByRole('button', { name: '编辑动作', exact: true }).click();
     await p.getByLabel('动作名称', { exact: true }).fill('标准俯卧撑');
     await submit(p);
@@ -119,6 +121,7 @@ test('阶段4：计划完成不制造训练，动作和安排改名删除后仍�
     assert.equal(await p.getByLabel('完成计划：新的上肢安排名称').isChecked(), true);
     await nav(p, '健身计划');
     await openTab(p, '动作库');
+    await p.locator('.exercise-row').first().hover();
     await p.getByRole('button', { name: '删除动作', exact: true }).click();
     await submit(p, '确认删除');
     await openTab(p, '每周训练安排');

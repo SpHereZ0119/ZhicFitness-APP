@@ -366,9 +366,13 @@ export function migrateState(state) {
       routines: legacy.routines.map(routine => ({ ...routine, date: '' })) });
   }
   if (state?.version === 5) {
-    validateVersion(state, 5);
-    return migrateState({ ...clone(state), version: 6,
-      foods: state.foods.map(food => ({ ...food, imageData: '' })) });
+    const legacy = clone(state);
+    delete legacy.exerciseGroups;
+    for (const exercise of legacy.exercises) delete exercise.groupId;
+    for (const routine of legacy.routines) { delete routine.groupId; delete routine.date; }
+    validateVersion(legacy, 5);
+    return migrateState({ ...legacy, version: 6,
+      foods: legacy.foods.map(food => ({ ...food, imageData: '' })) });
   }
   if (state?.version === 4) {
     validateVersion(state, 4);
@@ -385,12 +389,20 @@ export function migrateState(state) {
       exercises: state.exercises.map(exercise => ({ ...exercise, videoUrl: '' })) });
   }
   if (state?.version === 2) {
-    validateVersion(state, 2);
-    return migrateState({ ...clone(state), version: 3,
-      studyEntries: state.studyEntries.map(entry => ({ ...entry, videoUrl: '' })) });
+    const legacy = clone(state);
+    delete legacy.exerciseGroups;
+    for (const exercise of legacy.exercises) delete exercise.groupId;
+    for (const routine of legacy.routines) { delete routine.groupId; delete routine.date; }
+    validateVersion(legacy, 2);
+    return migrateState({ ...legacy, version: 3,
+      studyEntries: legacy.studyEntries.map(entry => ({ ...entry, videoUrl: '' })) });
   }
-  validateVersion(state, 1);
-  return migrateState({ ...clone(state), version: 2, studyTopics: [], studyEntries: [] });
+  const legacy = clone(state);
+  delete legacy.exerciseGroups;
+  for (const exercise of legacy.exercises) delete exercise.groupId;
+  for (const routine of legacy.routines) { delete routine.groupId; delete routine.date; }
+  validateVersion(legacy, 1);
+  return migrateState({ ...legacy, version: 2, studyTopics: [], studyEntries: [] });
 }
 
 function normalizeNested(state, collection, record) {
