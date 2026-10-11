@@ -218,6 +218,37 @@ document.addEventListener('input', event => {
     row.hidden = Boolean(query) && !label.includes(query);
   });
 });
+let exercisePress = null;
+document.addEventListener('pointerdown', event => {
+  const row = event.target.closest('.exercise-row');
+  if (!row || event.button !== 0 || event.target.closest('button,a,input')) return;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const timer = setTimeout(() => { row.dataset.longPressReady = 'true'; }, 350);
+  exercisePress = { row, startX, startY, timer };
+  row.setPointerCapture?.(event.pointerId);
+});
+document.addEventListener('pointermove', event => {
+  if (!exercisePress || event.target.closest('.exercise-swipe-actions')) return;
+  const { row, startX, startY } = exercisePress;
+  const dx = event.clientX - startX;
+  const dy = event.clientY - startY;
+  if (Math.abs(dy) > 24 || (dx > -24 && Math.abs(dx) > 10)) {
+    clearTimeout(exercisePress.timer);
+    exercisePress = null;
+    delete row.dataset.longPressReady;
+    return;
+  }
+  if (row.dataset.longPressReady === 'true' && dx < -28) row.dataset.actionsRevealed = 'true';
+});
+function clearExercisePress() {
+  if (!exercisePress) return;
+  clearTimeout(exercisePress.timer);
+  delete exercisePress.row.dataset.longPressReady;
+  exercisePress = null;
+}
+document.addEventListener('pointerup', clearExercisePress);
+document.addEventListener('pointercancel', clearExercisePress);
 document.addEventListener('dragstart', event => {
   const row = event.target.closest('[data-exercise-id]');
   if (row && event.dataTransfer) event.dataTransfer.setData('text/plain', row.dataset.exerciseId);

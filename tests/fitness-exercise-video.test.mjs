@@ -98,15 +98,47 @@ test('动作库可通过加入图标加入今日训练且不会重复添加', as
     await p.getByLabel('动作名称', { exact: true }).fill('加入动作');
     await submit(p);
     const row = p.locator('.exercise-row').first();
+    const box = await row.boundingBox();
+    await p.mouse.move(box.x + 45, box.y + box.height / 2);
+    await p.mouse.down();
+    await p.waitForTimeout(400);
+    await p.mouse.move(box.x - 45, box.y + box.height / 2);
+    await p.mouse.up();
     await row.getByRole('button', { name: '加入今日训练', exact: true }).click();
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
     let state = await stateOf(p);
     assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
     assert.deepEqual(state.routines.find(routine => routine.date === '2026-10-11').exerciseIds, [state.exercises[0].id]);
-    await row.getByRole('button', { name: '加入今日训练', exact: true }).click();
-    assert.match(await p.locator('#toast').textContent(), /已在今日训练/);
+    await row.getByRole('button', { name: '加入今日训练', exact: true }).click({ force: true });
+    assert.match(await p.locator('#toast').textContent(), /已加入今日训练/);
     state = await stateOf(p);
     assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+test('动作操作区不会因悬停显示，长按左滑后才显示', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await p.getByRole('tab', { name: '动作库', exact: true }).click();
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('长按动作');
+    await submit(p);
+    const row = p.locator('.exercise-row').first();
+    await row.hover();
+    assert.equal(await row.locator('.exercise-swipe-actions').evaluate(node => getComputedStyle(node).opacity), '0');
+    const box = await row.boundingBox();
+    await p.mouse.move(box.x + 45, box.y + box.height / 2);
+    await p.mouse.down();
+    await p.waitForTimeout(400);
+    await p.mouse.move(box.x - 45, box.y + box.height / 2);
+    await p.mouse.up();
+    assert.equal(await row.getAttribute('data-actions-revealed'), 'true');
+    assert.equal(await row.getByRole('button', { name: '加入今日训练', exact: true }).isVisible(), true);
+    assert.equal(await row.getByRole('button', { name: '编辑动作', exact: true }).isVisible(), true);
+    assert.equal(await row.getByRole('button', { name: '删除动作', exact: true }).isVisible(), true);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

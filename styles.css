@@ -176,7 +176,8 @@ button svg, .button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .exercise-selection-toolbar { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); }
 .exercise-actions { position: relative; z-index: 4; display: flex; align-items: center; gap: 8px; flex-shrink: 0; max-width: 100%; }
 .exercise-swipe-actions { display: flex; align-items: center; gap: 6px; width: 0; max-width: 0; overflow: hidden; opacity: 0; transform: translateX(10px); transition: width .18s ease, max-width .18s ease, opacity .18s ease, transform .18s ease; }
-.exercise-row:hover .exercise-swipe-actions, .exercise-row:focus-within .exercise-swipe-actions, .exercise-row:has(.exercise-swipe-actions:hover) .exercise-swipe-actions { width: 76px; max-width: 76px; opacity: 1; transform: translateX(0); }
+.exercise-row[data-actions-revealed="true"] .exercise-swipe-actions, .exercise-row:focus-within .exercise-swipe-actions, .exercise-row:has(.exercise-swipe-actions:hover) .exercise-swipe-actions { width: 114px; max-width: 114px; opacity: 1; transform: translateX(0); pointer-events: auto; }
+.exercise-swipe-actions { pointer-events: none; }
 .exercise-edit-action, .exercise-delete-action { width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 5px; color: #fff; font-size: 16px; line-height: 1; }
 .exercise-add-action { width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 5px; color: #fff; background: var(--teal); font-size: 18px; line-height: 1; }
 .exercise-add-action:hover { background: #246e62; }
@@ -191,7 +192,7 @@ button svg, .button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .exercise-row[draggable="true"]:active { cursor: grabbing; opacity: .65; }
 @media (max-width: 640px) {
   .exercise-actions { overflow-x: auto; padding-bottom: 2px; }
-  .exercise-swipe-actions { width: 76px; max-width: 76px; opacity: 1; transform: none; }
+  .exercise-row[data-actions-revealed="true"] .exercise-swipe-actions, .exercise-row:focus-within .exercise-swipe-actions, .exercise-row:has(.exercise-swipe-actions:hover) .exercise-swipe-actions { width: 114px; max-width: 114px; opacity: 1; transform: none; }
 }
 .row.completed .row-title, .row.done .row-title { color: #929b93; text-decoration: line-through; }
 .row.completed .row-time { color: #a0a89f; }
