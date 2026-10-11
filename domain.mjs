@@ -7,7 +7,7 @@
  *   actualMinutes,notes,status,videoUrl}; projects:{name,status,targetDate,description};
  * workItems:{projectId,title,status};
  * milestones:{projectId,title,date,done}; devLogs:{projectId,date,content};
- * exercises:{name,notes,videoUrl}; routines:{name,weekday,date,exerciseIds,exerciseTargets};
+ * exerciseGroups:{name}; exercises:{name,notes,videoUrl,groupId}; routines:{name,weekday,date,exerciseIds,exerciseTargets};
  * sessions:{routineId,name,date,status,entries:[{id,exerciseId,name,
  *   sets:[{id,reps,weightKg}]}]}; mealPlans:{date,meal,title};
  * foods:{date,meal,name,portion,calories,protein,carbs,fat,imageData}; waters:{date,amountMl};
@@ -19,12 +19,12 @@
 
 export const COLLECTIONS = Object.freeze([
   'memos', 'plans', 'studyTopics', 'studyEntries', 'projects', 'workItems', 'milestones', 'devLogs',
-  'exercises', 'routines', 'sessions', 'mealPlans', 'foods', 'waters',
+  'exerciseGroups', 'exercises', 'routines', 'sessions', 'mealPlans', 'foods', 'waters',
   'games', 'plays',
 ]);
-const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
+const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries', 'exerciseGroups'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 7;
+const CURRENT_VERSION = 8;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const SETTINGS = Object.freeze({
@@ -130,7 +130,8 @@ function defaults(collection) {
     case 'workItems': return { projectId: '', title: '', status: 'pending' };
     case 'milestones': return { projectId: '', title: '', date, done: false };
     case 'devLogs': return { projectId: '', date, content: '' };
-    case 'exercises': return { name: '', notes: '', videoUrl: '' };
+    case 'exerciseGroups': return { name: '' };
+    case 'exercises': return { name: '', notes: '', videoUrl: '', groupId: null };
     case 'routines': return { name: '', weekday: new Date().getDay(), date: '', exerciseIds: [], exerciseTargets: [] };
     case 'sessions': return { routineId: null, name: '', date, status: 'active', entries: [] };
     case 'mealPlans': return { date, meal: 'breakfast', title: '' };
@@ -155,7 +156,7 @@ function validateSettings(settings) {
 }
 
 function validateVersion(state, version) {
-  const collections = version === 1 ? COLLECTIONS_V1 : COLLECTIONS_V2;
+  const collections = version === 1 ? COLLECTIONS_V1 : (version >= 8 ? COLLECTIONS_V2 : COLLECTIONS_V2.filter(key => key !== 'exerciseGroups'));
   const links = version === 1 ? Object.fromEntries(Object.entries(LINK_TYPES).filter(([type]) => type !== 'studyEntry')) : LINK_TYPES;
   objectKeys(state, ['version', 'settings', ...collections], '应用数据');
   requireThat(state.version === version, '不支持的数据版本');
@@ -183,6 +184,7 @@ function validateVersion(state, version) {
         || (version <= 4 && collection === 'routines' && key === 'exerciseTargets')
         || (version <= 5 && collection === 'foods' && key === 'imageData')
         || (version <= 6 && collection === 'routines' && key === 'date')
+        || (version < 8 && collection === 'exercises' && key === 'groupId')
       ));
       objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
@@ -251,10 +253,14 @@ function validateVersion(state, version) {
           dateValue(record.date);
           textValue(record.content, '开发日志内容');
           break;
+        case 'exerciseGroups':
+          textValue(record.name, '动作组名称');
+          break;
         case 'exercises':
           textValue(record.name, '动作名称');
           textValue(record.notes, '动作说明', true);
           if (version >= 4) videoUrlValue(record.videoUrl);
+          if (version >= 8) reference(record.groupId, 'exerciseGroups', '动作组', true);
           break;
         case 'routines':
           textValue(record.name, '训练安排名称');
@@ -338,19 +344,25 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 7) {
+    validateVersion(state, 7);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      exerciseGroups: state.exerciseGroups || [],
+      exercises: state.exercises.map(exercise => ({ ...exercise, groupId: exercise.groupId ?? null })) });
+  }
   if (state?.version === 6) {
     validateVersion(state, 6);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 7,
       routines: state.routines.map(routine => ({ ...routine, date: '' })) });
   }
   if (state?.version === 5) {
     validateVersion(state, 5);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 6,
       foods: state.foods.map(food => ({ ...food, imageData: '' })) });
   }
   if (state?.version === 4) {
     validateVersion(state, 4);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 5,
       routines: state.routines.map(routine => ({ ...routine,
         exerciseTargets: routine.exerciseIds.map(exerciseId => ({ exerciseId, sets: 3, reps: 8, weightKg: 0 })),
       })) });
@@ -467,6 +479,12 @@ export function remove(state, collection, id) {
         changed = true;
       }
       if (changed) touch(session);
+    }
+  }
+  if (collection === 'exerciseGroups') {
+    for (const exercise of next.exercises) if (exercise.groupId === id) {
+      exercise.groupId = null;
+      touch(exercise);
     }
   }
   for (const [key, ids] of removed) next[key] = next[key].filter(record => !ids.has(record.id));

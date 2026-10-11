@@ -6,10 +6,12 @@ import { createState, migrateState, upsert } from '../domain.mjs';
 test('v3动作库数据迁移后保留动作说明并补齐视频字段', () => {
   let state = upsert(createState(), 'exercises', { name: '旧动作', notes: '旧说明' });
   delete state.exercises[0].videoUrl;
+  delete state.exercises[0].groupId;
+  delete state.exerciseGroups;
   state.version = 3;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 7);
-  assert.deepEqual(migrated.exercises[0], { ...state.exercises[0], videoUrl: '' });
+  assert.equal(migrated.version, 8);
+  assert.deepEqual(migrated.exercises[0], { ...state.exercises[0], videoUrl: '', groupId: null });
 });
 
 test('动作库支持教学视频按钮和可展开的动作详情', async () => {
@@ -82,6 +84,32 @@ test('动作库编辑删除收纳到滑动操作区，删除需要二次确认',
     await submit(p, '确认删除');
     assert.equal((await stateOf(p)).exercises.length, 0);
     assert.equal(await p.locator('[data-exercise-id]').count(), 0);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+test('动作库支持动作组和拖放归类', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await p.getByRole('tab', { name: '动作库', exact: true }).click();
+    await p.getByRole('button', { name: '新增动作组', exact: true }).click();
+    await p.getByLabel('动作组名称', { exact: true }).fill('下肢训练');
+    await submit(p);
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('杠铃深蹲');
+    await submit(p);
+    const row = p.locator('[data-exercise-id]').first();
+    const group = p.locator('[data-group-drop]').first();
+    await row.evaluate((node, groupId) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', node.dataset.exerciseId);
+      document.querySelector(`[data-exercise-group-id="${groupId}"]`).dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: data }));
+    }, await group.getAttribute('data-exercise-group-id'));
+    await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
+    assert.equal((await stateOf(p)).exercises[0].groupId, await group.getAttribute('data-exercise-group-id'));
+    assert.match(await row.textContent(), /下肢训练/);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
