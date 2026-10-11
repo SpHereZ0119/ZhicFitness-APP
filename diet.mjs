@@ -41,12 +41,17 @@ function dietCalendar(ctx, state, selectedDate) {
   for (let i = 0; i < offset; i++) cells.push('<span class="calendar-empty" aria-hidden="true"></span>');
   for (let day = 1; day <= days; day++) {
     const value = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const foods = state.foods.filter(record => record.date === value).length;
-    const meals = state.mealPlans.filter(record => record.date === value).length;
-    const waters = state.waters.filter(record => record.date === value).length;
-    const marked = foods || meals || waters;
-    const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedDate ? 'selected' : '', marked ? 'has-records' : ''].filter(Boolean).join(' ');
-    cells.push(`<button type="button" class="${classes}" data-action="diet-date" data-date="${value}" aria-label="${esc(dateLabel(value))}" ${value === selectedDate ? 'aria-current="date"' : ''}><strong>${day}</strong>${meals ? `<small>${meals} 餐食安排</small>` : ''}${foods ? `<small>${foods} 条饮食</small>` : ''}${waters ? `<small>${waters} 条饮水</small>` : ''}</button>`);
+    const foods = state.foods.filter(record => record.date === value);
+    const mealPlans = state.mealPlans.filter(record => record.date === value);
+    const waters = state.waters.filter(record => record.date === value);
+    const details = [
+      ...mealPlans.map(record => `${meals[record.meal] || '餐食'}安排：${record.title}`),
+      ...foods.map(record => `${meals[record.meal] || '餐食'}记录：${record.name}${record.portion ? ` · ${record.portion}` : ''}`),
+      ...(waters.length ? [`饮水记录：${waters.length} 次，共 ${Math.round(waters.reduce((sum, record) => sum + record.amountMl, 0))} ml`] : [])
+    ];
+    const detailText = details.length ? details.join('；') : '暂无饮食安排或记录';
+    const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedDate ? 'selected' : '', details.length ? 'has-records' : ''].filter(Boolean).join(' ');
+    cells.push(`<button type="button" class="${classes}" data-action="diet-date" data-date="${value}" aria-label="${esc(`${dateLabel(value)}：${detailText}`)}" ${value === selectedDate ? 'aria-current="date"' : ''}><strong>${day}</strong><small class="calendar-detail" data-calendar-detail>${esc(detailText)}</small></button>`);
   }
   return `<section class="panel calendar-panel" data-calendar="diet"><div class="section-head"><h2>${year}年${month}月</h2><div class="actions"><button type="button" class="small" data-action="diet-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="diet-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedDate)} 已选中；带标记的日期有餐食、饮食或饮水记录。</p></section>`;
 }

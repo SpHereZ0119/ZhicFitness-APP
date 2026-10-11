@@ -40,11 +40,21 @@ function fitnessCalendar(ctx, state) {
   for (let i = 0; i < offset; i++) cells.push('<span class="calendar-empty" aria-hidden="true"></span>');
   for (let day = 1; day <= days; day++) {
     const value = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const weekday = new Date(`${value}T12:00:00`).getDay();
-    const hasRoutine = state.routines.some(routine => routineMatchesDate(routine, value));
-    const hasSession = state.sessions.some(session => session.date === value);
-    const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedFitnessDate ? 'selected' : '', hasRoutine || hasSession ? 'has-records' : ''].filter(Boolean).join(' ');
-    cells.push(`<button type="button" class="${classes}" data-action="fit-date" data-date="${value}" aria-label="${esc(dateLabel(value))}" ${value === selectedFitnessDate ? 'aria-current="date"' : ''}><strong>${day}</strong>${hasRoutine ? '<small>有安排</small>' : ''}${hasSession ? '<small>有记录</small>' : ''}</button>`);
+    const routines = state.routines.filter(routine => routineMatchesDate(routine, value));
+    const sessions = state.sessions.filter(session => session.date === value);
+    const details = [
+      ...routines.map(routine => {
+        const names = (routine.exerciseIds || []).map(id => state.exercises.find(exercise => exercise.id === id)?.name).filter(Boolean);
+        return `安排：${routine.name}${names.length ? ` · ${names.join('、')}` : ''}`;
+      }),
+      ...sessions.map(session => {
+        const entries = (session.entries || []).map(entry => `${entry.name} ${entry.sets.length}组`).join('、');
+        return `记录：${session.name}${entries ? ` · ${entries}` : ''}`;
+      })
+    ];
+    const detailText = details.length ? details.join('；') : '暂无训练安排或记录';
+    const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedFitnessDate ? 'selected' : '', details.length ? 'has-records' : ''].filter(Boolean).join(' ');
+    cells.push(`<button type="button" class="${classes}" data-action="fit-date" data-date="${value}" aria-label="${esc(`${dateLabel(value)}：${detailText}`)}" ${value === selectedFitnessDate ? 'aria-current="date"' : ''}><strong>${day}</strong><small class="calendar-detail" data-calendar-detail>${esc(detailText)}</small></button>`);
   }
   return `<section class="panel calendar-panel" data-calendar="fitness"><div class="section-head"><h2>训练日历</h2><button type="button" class="small" data-action="fit-calendar-toggle" aria-expanded="${fitnessCalendarOpen}">${fitnessCalendarOpen ? '收起日历' : '展开日历'}</button></div>${fitnessCalendarOpen ? `<div class="section-head"><h3>${year}年${month}月</h3><div class="actions"><button type="button" class="small" data-action="fit-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="fit-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedFitnessDate)} 已选中；带标记的日期有安排或实际训练。</p>` : `<p class="muted small">日历已隐藏。点击“展开日历”查看训练安排和记录。</p>`}</section>`;
 }
@@ -71,7 +81,10 @@ function exerciseSelectionToolbar(ctx) {
 function daySummary(ctx, date, routines, sessions) {
   const { esc, dateLabel } = ctx;
   const weekday = weekdays[new Date(`${date}T12:00:00`).getDay()];
-  const routineText = routines.length ? routines.map(routine => esc(routine.name)).join(' · ') : '没有安排训练';
+  const routineText = routines.length ? routines.map(routine => {
+    const names = (routine.exerciseIds || []).map(id => ctx.state.exercises.find(exercise => exercise.id === id)?.name).filter(Boolean);
+    return `${esc(routine.name)}${names.length ? `（${names.map(name => esc(name)).join('、')}）` : ''}`;
+  }).join(' · ') : '没有安排训练';
   const sessionText = sessions.length ? sessions.map(session => `${esc(session.name)}（${session.status === 'done' ? '已完成' : '进行中'}，${session.entries.reduce((count, entry) => count + entry.sets.length, 0)} 组：${session.entries.map(entry => `${esc(entry.name)} ${entry.sets.length} 组`).join('、')}）`).join(' · ') : '没有实际训练记录';
   return `<section class="panel" data-fitness-day="${esc(date)}"><div class="section-head"><div><h2>${esc(dateLabel(date))} · 当天训练</h2><p class="muted">${weekday} · 训练安排与实际记录分开保存</p></div><span class="badge ${date === localDate() ? 'teal' : ''}">${date === localDate() ? '今天' : '历史日期'}</span></div><div class="metric-grid"><div class="metric"><small>训练安排</small><p>${routineText}</p></div><div class="metric"><small>实际训练</small><p>${sessionText}</p></div><div class="metric"><small>训练次数</small><strong>${sessions.length}</strong></div></div></section>`;
 }
