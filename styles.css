@@ -305,6 +305,7 @@ td .actions { flex-wrap: nowrap; }
 .exercise-targets label { color: var(--muted); font-size: 11px; }
 .exercise-targets input { min-height: 32px; margin-top: 4px; padding: 5px 8px; font-size: 12px; }
 .calendar-panel { padding-bottom: 16px; }
+.fitness-calendar-row { grid-column: 1 / -1; width: 100%; }
 .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .calendar-weekdays { margin-bottom: 6px; color: var(--muted); font-size: 11px; text-align: center; }
 .calendar-day, .calendar-empty { min-height: 58px; }

@@ -18,6 +18,8 @@ test('健身与饮食计划以月历标记重点日期并可切换查看', async
     await p.getByRole('dialog').getByLabel('日历动作', { exact: true }).check();
     await submit(p);
     const fitnessCalendar = p.locator('[data-calendar="fitness"]');
+    assert.equal(await fitnessCalendar.getAttribute('data-layout'), 'full-row');
+    assert.equal(await fitnessCalendar.evaluate(node => node.classList.contains('fitness-calendar-row')), true);
     assert.equal(await fitnessCalendar.locator('.calendar-grid').count(), 0);
     await fitnessCalendar.getByRole('button', { name: '展开日历', exact: true }).click();
     assert.equal(await fitnessCalendar.locator('.calendar-grid').count(), 1);
