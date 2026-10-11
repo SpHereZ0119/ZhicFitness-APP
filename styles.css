@@ -24,6 +24,12 @@
   --danger-soft: #fbeceb;
   --radius: 8px;
   --shadow: 0 10px 35px rgb(29 47 40 / 7%);
+  --motion-fast: 100ms;
+  --motion-standard: 220ms;
+  --motion-dialog-enter: 320ms;
+  --motion-dialog-exit: 210ms;
+  --motion-ease: cubic-bezier(.22, .8, .28, 1);
+  --motion-ease-out: cubic-bezier(.16, 1, .3, 1);
   font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
   font-size: 14px;
   font-synthesis: none;
@@ -116,8 +122,10 @@ button, .button {
   min-height: 36px; padding: 7px 13px; border: 1px solid var(--line-strong);
   border-radius: 5px; background: var(--surface); color: var(--ink);
   font-size: 12px; line-height: 1.5; font-weight: 550; text-decoration: none;
-  transition: background .14s ease, border-color .14s ease;
+  transition: transform var(--motion-fast) ease-out, background var(--motion-standard) var(--motion-ease), border-color var(--motion-standard) var(--motion-ease), box-shadow var(--motion-standard) var(--motion-ease);
 }
+button.is-pressed, a.is-pressed, [role="button"].is-pressed { transform: scale(.97); box-shadow: inset 0 1px 3px rgb(25 42 32 / 18%); }
+button:active:not(:disabled), .button:active { transform: scale(.97); }
 button:hover, .button:hover { background: #f3f5f0; border-color: #aab9ac; }
 button.primary, .button.primary, button[type="submit"] { color: #fff; background: var(--ink); border-color: var(--ink); }
 button.primary:hover, .button.primary:hover, button[type="submit"]:hover { background: #3b4b43; border-color: #3b4b43; }
@@ -143,6 +151,15 @@ button svg, .button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .stat-icon.orange { color: var(--accent); background: var(--accent-soft); }
 .stat.accent { background: #fff8f1; border-color: #f0ddcc; }
 .stat.teal { background: #f3f9f6; border-color: #dcebe3; }
+.today-progress-stat { display: flex; align-items: center; gap: 14px; }
+.today-progress-stat > div:last-of-type { min-width: 0; }
+.today-progress-stat > progress { grid-column: 1 / -1; }
+.progress-ring { position: relative; width: 72px; height: 72px; flex: 0 0 72px; }
+.progress-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.progress-ring circle { fill: none; stroke-width: 8; stroke-linecap: round; }
+.progress-ring-track { stroke: #eadfd3; }
+.progress-ring-value { stroke: var(--accent); transition: stroke-dasharray 520ms var(--motion-ease); }
+.progress-ring strong { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums; }
 
 .dashboard-grid, .two-column { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .equal-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -246,8 +263,13 @@ input[type="file"]::file-selector-button { font: inherit; padding: 5px 9px; marg
   width: min(600px, calc(100vw - 40px)); max-height: calc(100dvh - 64px);
   padding: 26px; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 25px 80px rgb(18 36 27 / 20%); overflow: auto;
+  transform: translateY(16px) scale(.97); opacity: 0;
+  transition: transform var(--motion-dialog-enter) var(--motion-ease-out), opacity var(--motion-dialog-enter) ease;
 }
-dialog::backdrop { background: rgb(24 38 31 / 34%); backdrop-filter: blur(2px); }
+dialog.dialog-entered { transform: translateY(0) scale(1); opacity: 1; }
+dialog.dialog-exiting { transform: translateY(12px) scale(.98); opacity: 0; transition-duration: var(--motion-dialog-exit); }
+dialog::backdrop { background: rgb(24 38 31 / 34%); backdrop-filter: blur(2px); animation: backdrop-in var(--motion-dialog-enter) ease both; }
+dialog.dialog-exiting::backdrop { animation: backdrop-out var(--motion-dialog-exit) ease both; }
 .dialog .section-head { margin-bottom: 24px; }
 .dialog h2 { font-size: 19px; }
 .dialog .dialog-description { margin: -12px 0 20px; color: var(--muted); font-size: 12px; }
@@ -259,6 +281,7 @@ dialog::backdrop { background: rgb(24 38 31 / 34%); backdrop-filter: blur(2px); 
 .toast, #toast { position: fixed; z-index: 100; bottom: 24px; left: calc(50% + 112px); transform: translateX(-50%); display: flex; align-items: center; gap: 18px; max-width: min(520px, calc(100vw - 40px)); padding: 12px 18px; color: #fff; background: #2e4035; border-radius: 6px; box-shadow: var(--shadow); font-size: 12px; }
 #toast { display: none; }
 #toast.visible { display: flex; }
+#toast.toast-enter { animation: toast-in 220ms var(--motion-ease-out) both; }
 #toast.error { background: var(--danger); }
 .toast button, #toast button { background: transparent; border-color: #69786d; color: #fff; min-height: 28px; padding: 3px 9px; }
 
@@ -366,10 +389,22 @@ details[open] > summary { margin-bottom: 12px; }
   .section-head { align-items: flex-start; }
   .metric-grid { grid-template-columns: minmax(0, 1fr); }
   .toast, #toast { left: calc(50% + 70px); max-width: calc(100vw - 170px); }
+  .dialog, dialog { width: 100%; max-width: none; max-height: calc(100dvh - 24px); margin: auto 0 0; border-radius: 14px 14px 0 0; transform: translateY(20px) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes backdrop-in { from { background: rgb(24 38 31 / 0%); } to { background: rgb(24 38 31 / 34%); } }
+@keyframes backdrop-out { from { background: rgb(24 38 31 / 34%); } to { background: rgb(24 38 31 / 0%); } }
+.page-enter { animation: page-in var(--motion-standard) var(--motion-ease-out) both; }
+@keyframes page-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter, #toast.toast-enter { animation: none; }
+  .dialog, dialog { transform: none; opacity: 1; }
+  .progress-ring-value { transition: none; }
 }
 
 @media print {

@@ -11,7 +11,8 @@ const pages = [ ['home','首页预览','⌂'], ['plans','今日计划','◷'], [
 let state = createState(), repo, saving = '正在读取', page = location.hash.slice(1) || 'home';
 let selectedDate = localDate();
 let failedMutation = null, pendingWrites = 0, dialogGeneration = 0, lastError = '';
-let dialogReturnFocus = null;
+let dialogReturnFocus = null, dialogCloseTimer = null;
+let routeTransition = false;
 const moduleNames = {personal:'个人事项',study:'学习计划',development:'开发工作',fitness:'健身计划',diet:'饮食计划',gaming:'游戏娱乐'};
 const priorityNames = {high:'高优先级',normal:'普通',low:'低优先级'};
 const mealNames = {breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
@@ -21,10 +22,10 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp
 const button = (label, action, data = '', cls = '') => `<button type="button" class="${cls}" data-action="${action}" ${data}>${label}</button>`;
 const empty = (text, label = '', action = '', data = '') => `<div class="empty"><span class="empty-mark">＋</span><p>${esc(text)}</p>${label ? button(label,action,data,'primary') : ''}</div>`;
 function toast(message, error = false) {
-  const node = document.querySelector('#toast'); node.textContent = message; node.className = error ? 'visible error' : 'visible';
+  const node = document.querySelector('#toast'); node.textContent = message; node.className = error ? 'visible error toast-enter' : 'visible toast-enter';
   clearTimeout(toast.timer); toast.timer = setTimeout(() => node.className = '', 4500);
 }
-function saveStatus(value) { saving = value; const node = document.querySelector('#save-status'); if (node) { node.textContent = value; node.classList.toggle('error', value.includes('失败')); } const discard=document.querySelector('[data-action="discard-failed"]');if(discard)discard.hidden=!failedMutation;const retry=document.querySelector('[data-action="retry"]');if(retry)retry.hidden=!value.includes('失败'); }
+function saveStatus(value) { saving = value; const node = document.querySelector('#save-status'); if (node) { node.textContent = value; node.classList.toggle('error', value.includes('失败')); } const saveButton=document.querySelector('[data-action="manual-save"]');if(saveButton){saveButton.classList.toggle('is-saving',value==='保存中');saveButton.setAttribute('aria-busy',String(value==='保存中'));} const discard=document.querySelector('[data-action="discard-failed"]');if(discard)discard.hidden=!failedMutation;const retry=document.querySelector('[data-action="retry"]');if(retry)retry.hidden=!value.includes('失败'); }
 async function commit(mutation, message = '', retry = false) {
   if (!repo) { toast('尚未读取本地数据，请先重试。',true); return false; }
   const source = editor.open ? dialogGeneration : null;
@@ -73,14 +74,15 @@ function field(label,name,value='',type='text',extra='') {
 }
 const selectField = (label,name,items,value) => { const id = `field-${name}`; return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}" name="${name}">${opts(items,value)}</select></div>`; };
 function formDialog(title,fields,onSubmit,description='',submitLabel='保存') {
+  clearTimeout(dialogCloseTimer);
   dialogReturnFocus=focusKey(document.activeElement)||dialogReturnFocus;
   const token=++dialogGeneration;
   editor.innerHTML = `<form><div class="section-head"><h2 id="dialog-title">${esc(title)}</h2>${button('关闭','close','','ghost')}</div>${description?`<p class="dialog-description">${esc(description)}</p>`:''}<div class="form-grid">${fields}</div><p class="form-error" role="alert" hidden></p><div class="form-actions">${button('取消','close')}<button type="submit">${esc(submitLabel)}</button></div></form>`;
-  editor.setAttribute('aria-labelledby','dialog-title');editor.showModal();
+  editor.setAttribute('aria-labelledby','dialog-title');editor.classList.remove('dialog-exiting');editor.showModal();editor.classList.remove('dialog-entered');requestAnimationFrame(() => editor.classList.add('dialog-entered'));
   const form=editor.querySelector('form');
   form.onsubmit = async event => {
     event.preventDefault();const submit=form.querySelector('[type=submit]');submit.disabled=true;
-    try { const result=await onSubmit(new FormData(event.target));if(result!==false && token===dialogGeneration)editor.close();else if(result===false){const node=form.querySelector('.form-error');node.hidden=false;node.textContent=lastError||'尚未保存，请修正后重试。';} }
+    try { const result=await onSubmit(new FormData(event.target));if(result!==false && token===dialogGeneration)closeDialog();else if(result===false){const node=form.querySelector('.form-error');node.hidden=false;node.textContent=lastError||'尚未保存，请修正后重试。';} }
     catch(error){const node=form.querySelector('.form-error');node.hidden=false;node.textContent=error.message;}
     finally{submit.disabled=false;}
   };
@@ -98,7 +100,11 @@ function restoreFocus(key) {
 }
 function closeDialog() {
   if(failedMutation?.source===dialogGeneration){failedMutation=null;lastError='';saveStatus(pendingWrites?'保存中':'已保存');}
-  editor.close();
+  if (!editor.open) return;
+  editor.classList.remove('dialog-entered');
+  editor.classList.add('dialog-exiting');
+  clearTimeout(dialogCloseTimer);
+  dialogCloseTimer = setTimeout(() => { editor.classList.remove('dialog-exiting'); editor.close(); }, 210);
 }
 editor.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
 editor.addEventListener('close',()=>{queueMicrotask(()=>restoreFocus(dialogReturnFocus));});
@@ -146,14 +152,49 @@ function homePage() {
 }
 function summaryPanel(title,href,text,label,action) {return `<section class="panel"><div class="section-head"><h2>${title}</h2><a href="${href}" aria-label="打开${title}">进入 →</a></div><p class="summary-text">${esc(text)}</p>${button(label,action,'','small')}</section>`;}
 function render() {
+  const previousProgress = document.querySelector('[data-testid="today-progress-ring"]')?.getAttribute('aria-valuenow');
   const focus=focusKey(document.activeElement);
   if (!pages.some(item => item[0] === page)) page = 'home';
   const item = pages.find(item => item[0] === page);
-  app.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" href="#home"><span class="brand-icon">Z</span><span>ZHIC <small>PERSONAL SPACE</small></span></a><div class="nav-label">我的工作台</div><nav aria-label="主导航">${pages.map(([id,name,icon])=>`<a href="#${id}" ${id===page?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${name}</a>`).join('')}</nav><div class="sidebar-bottom"><span class="local-dot"></span> 本机空间 <small>专注自己的节奏</small></div></aside><main class="main"><div class="topbar"><span>我的空间 <span class="breadcrumb">/ ${item[1]}</span></span><div class="save-area"><span id="save-status" role="status">${esc(saving)}</span>${button('手动保存','manual-save','','subtle')}${button('重试保存','retry','','subtle')}<span class="avatar">Z</span></div></div><div class="page-content"><header class="page-header"><div><p class="eyebrow">${page==='home'?'TODAY, AT YOUR PACE':'MY PERSONAL WORKSPACE'}</p><h1>${page==='home'?'把今天，过成自己的节奏。':item[1]}</h1><p class="subtitle">${page==='home'?'计划、记录、慢慢前进。你的日常都在这里。':'记录当下，让每一步都有迹可循。'}</p></div></header><div id="page-body">${empty('此处尚无记录')}</div></div></main></div>`;
+  app.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" href="#home"><span class="brand-icon">Z</span><span>ZHIC <small>PERSONAL SPACE</small></span></a><div class="nav-label">我的工作台</div><nav aria-label="主导航">${pages.map(([id,name,icon])=>`<a href="#${id}" ${id===page?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${name}</a>`).join('')}</nav><div class="sidebar-bottom"><span class="local-dot"></span> 本机空间 <small>专注自己的节奏</small></div></aside><main class="main"><div class="topbar"><span>我的空间 <span class="breadcrumb">/ ${item[1]}</span></span><div class="save-area"><span id="save-status" role="status">${esc(saving)}</span>${button('手动保存','manual-save','','subtle')}${button('重试保存','retry','','subtle')}<span class="avatar">Z</span></div></div><div class="page-content"><header class="page-header"><div><p class="eyebrow">${page==='home'?'TODAY, AT YOUR PACE':'MY PERSONAL WORKSPACE'}</p><h1>${page==='home'?'把今天，过成自己的节奏。':item[1]}</h1><p class="subtitle">${page==='home'?'计划、记录、慢慢前进。你的日常都在这里。':'记录当下，让每一步都有迹可循。'}</p></div></header><div id="page-body" class="${routeTransition ? 'page-enter' : ''}">${empty('此处尚无记录')}</div></div></main></div>`;
   renderPage();
+  animateProgressRing(previousProgress);
   const discard=document.createElement('button');discard.type='button';discard.dataset.action='discard-failed';discard.className='ghost small';discard.textContent='放弃未保存修改';discard.hidden=!failedMutation;document.querySelector('.save-area').append(discard);
   saveStatus(saving);
   restoreFocus(focus);
+}
+function enhanceTodayProgress(body) {
+  const progress = body.querySelector('progress[aria-label="今日计划进度"]');
+  if (!progress) return;
+  const metric = body.querySelector('[data-testid="today-progress"]')?.textContent || '0 / 0';
+  const [value, max] = metric.split('/').map(part => Number(part.trim()) || 0);
+  const circumference = 2 * Math.PI * 42;
+  const ratio = max ? Math.min(1, value / max) : 0;
+  const ring = document.createElement('div');
+  ring.className = 'progress-ring';
+  ring.dataset.testid = 'today-progress-ring';
+  ring.setAttribute('role', 'progressbar');
+  ring.setAttribute('aria-label', '今日计划完成进度');
+  ring.setAttribute('aria-valuemin', '0');
+  ring.setAttribute('aria-valuemax', String(max));
+  ring.setAttribute('aria-valuenow', String(value));
+  ring.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="progress-ring-track" cx="50" cy="50" r="42"></circle><circle class="progress-ring-value" cx="50" cy="50" r="42" pathLength="${circumference}" stroke-dasharray="${circumference * ratio} ${circumference * (1 - ratio)}"></circle></svg><strong>${value} / ${max}</strong>`;
+  progress.replaceWith(ring);
+}
+function animateProgressRing(previousValue) {
+  const body = document.querySelector('#page-body');
+  if (body && page === 'home') enhanceTodayProgress(body);
+  const ring = body?.querySelector('[data-testid="today-progress-ring"]');
+  if (!ring || previousValue === null || previousValue === undefined) return;
+  const value = Number(ring.getAttribute('aria-valuenow')) || 0;
+  const max = Number(ring.getAttribute('aria-valuemax')) || 0;
+  const circumference = 2 * Math.PI * 42;
+  const start = max ? Math.min(1, Number(previousValue) / max) : 0;
+  const end = max ? Math.min(1, value / max) : 0;
+  const path = ring.querySelector('.progress-ring-value');
+  path.style.transition = 'none';
+  path.style.strokeDasharray = `${circumference * start} ${circumference * (1 - start)}`;
+  requestAnimationFrame(() => { path.style.transition = 'stroke-dasharray 520ms cubic-bezier(.22,.8,.28,1)'; path.style.strokeDasharray = `${circumference * end} ${circumference * (1 - end)}`; });
 }
 function renderPage() {
   const body = document.querySelector('#page-body');
@@ -167,7 +208,14 @@ function renderPage() {
   if(page==='settings'){body.innerHTML=renderSettings(context);return;}
   body.innerHTML = `<section class="panel"><div class="section-head"><h2>${pages.find(item=>item[0]===page)[1]}</h2></div>${empty('还没有记录，从自己的第一步开始。')}</section>`;
 }
-window.addEventListener('hashchange', () => { const next=location.hash.slice(1)||'home';if(page==='home' && next==='plans')selectedDate=localDate();page=next;render(); });
+window.addEventListener('hashchange', () => { const next=location.hash.slice(1)||'home';if(page==='home' && next==='plans')selectedDate=localDate();routeTransition = next !== page;page=next;render();routeTransition=false; });
+document.addEventListener('pointerdown', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && !control.disabled && !control.getAttribute('aria-disabled')) control.classList.add('is-pressed'); });
+document.addEventListener('pointerup', event => { event.target.closest('button, a, [role="button"]')?.classList.remove('is-pressed'); });
+document.addEventListener('pointercancel', event => { event.target.closest('button, a, [role="button"]')?.classList.remove('is-pressed'); });
+document.addEventListener('pointerleave', event => { event.target.closest('button, a, [role="button"]')?.classList.remove('is-pressed'); }, true);
+document.addEventListener('keydown', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && (event.key === 'Enter' || event.key === ' ' ) && !control.disabled) control.classList.add('is-pressed'); });
+document.addEventListener('keyup', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && (event.key === 'Enter' || event.key === ' ')) control.classList.remove('is-pressed'); });
+window.addEventListener('blur', () => document.querySelectorAll('.is-pressed').forEach(node => node.classList.remove('is-pressed')));
 document.addEventListener('click', async event => {
   const target = event.target.closest('[data-action]');
   if (!target) return;
