@@ -88,6 +88,29 @@ test('动作库编辑删除收纳到滑动操作区，删除需要二次确认',
   } finally { await app.close(); }
 });
 
+test('动作库可通过加入图标加入今日训练且不会重复添加', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await p.getByRole('tab', { name: '动作库', exact: true }).click();
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('加入动作');
+    await submit(p);
+    const row = p.locator('.exercise-row').first();
+    await row.getByRole('button', { name: '加入今日训练', exact: true }).click();
+    await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
+    let state = await stateOf(p);
+    assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
+    assert.deepEqual(state.routines.find(routine => routine.date === '2026-10-11').exerciseIds, [state.exercises[0].id]);
+    await row.getByRole('button', { name: '加入今日训练', exact: true }).click();
+    assert.match(await p.locator('#toast').textContent(), /已在今日训练/);
+    state = await stateOf(p);
+    assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
 test('动作库支持动作组和拖放归类', async () => {
   const app = await setup();
   try {
