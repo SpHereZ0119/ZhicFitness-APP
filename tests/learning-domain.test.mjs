@@ -23,7 +23,7 @@ test('v1 data and JSON backup migrate without changing any existing record', () 
   const legacy = legacyState();
   const snapshot = structuredClone(legacy);
   const migrated = migrateState(legacy);
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
   assert.deepEqual(migrated.studyTopics, []);
   assert.deepEqual(migrated.studyEntries, []);
   for (const [key, value] of Object.entries(legacy)) if (key !== 'version') assert.deepEqual(migrated[key], value);
@@ -39,7 +39,7 @@ test('v2 study entries migrate with an empty teaching video link', () => {
   delete state.studyEntries[0].videoUrl;
   state.version = 2;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
   assert.equal(migrated.studyEntries[0].videoUrl, '');
   assert.deepEqual(migrated.studyEntries[0].title, state.studyEntries[0].title);
 });

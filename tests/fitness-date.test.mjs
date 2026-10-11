@@ -103,7 +103,7 @@ test('已有 v6 本地数据库首次打开时会迁移到当前数据版本', a
     }, legacy);
     await p.goto(app.url);
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
-    assert.equal((await stateOf(p)).version, 7);
+    assert.equal((await stateOf(p)).version, 8);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
