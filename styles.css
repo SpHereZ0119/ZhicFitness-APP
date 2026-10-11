@@ -170,6 +170,10 @@ button svg, .button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .row-time { min-width: 42px; flex-shrink: 0; color: #78847b; font-size: 11px; font-variant-numeric: tabular-nums; }
 .row .actions { flex-shrink: 0; }
 .exercise-row { position: relative; z-index: 3; overflow: visible; }
+.exercise-select-control { display: flex; align-items: center; padding-right: 4px; }
+.exercise-select-control input { width: 18px; height: 18px; accent-color: var(--accent); }
+.exercise-row.exercise-selected { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.exercise-selection-toolbar { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-soft); }
 .exercise-actions { position: relative; z-index: 4; display: flex; align-items: center; gap: 8px; flex-shrink: 0; max-width: 100%; }
 .exercise-swipe-actions { display: flex; align-items: center; gap: 6px; width: 0; max-width: 0; overflow: hidden; opacity: 0; transform: translateX(10px); transition: width .18s ease, max-width .18s ease, opacity .18s ease, transform .18s ease; }
 .exercise-row:hover .exercise-swipe-actions, .exercise-row:focus-within .exercise-swipe-actions, .exercise-row:has(.exercise-swipe-actions:hover) .exercise-swipe-actions { width: 76px; max-width: 76px; opacity: 1; transform: translateX(0); }
@@ -178,6 +182,11 @@ button svg, .button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .exercise-edit-action:hover { background: #c99512; }
 .exercise-delete-action { background: var(--danger); }
 .exercise-delete-action:hover { background: #963833; }
+.exercise-group-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.exercise-group-drop { min-height: 72px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 5px; background: var(--surface-soft); }
+.exercise-group-drop:hover { border-color: var(--teal); background: #f3f8f3; }
+.exercise-row[draggable="true"] { cursor: grab; }
+.exercise-row[draggable="true"]:active { cursor: grabbing; opacity: .65; }
 @media (max-width: 640px) {
   .exercise-actions { overflow-x: auto; padding-bottom: 2px; }
   .exercise-swipe-actions { width: 76px; max-width: 76px; opacity: 1; transform: none; }

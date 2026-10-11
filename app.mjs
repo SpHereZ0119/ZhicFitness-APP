@@ -201,9 +201,28 @@ document.addEventListener('change',async event=>{
   const node=event.target;
   if(node.id==='selected-date'){selectedDate=node.value||localDate();render();return;}
   if(node.id==='fitness-date'){await handleFitness(context,'fit-date',node);return;}
+  if(node.dataset.change==='fit-exercise-select'){
+    await handleFitness(context,'fit-exercise-select',node);
+    return;
+  }
   if(await handleSettingsChange(context,event))return;
   if(node.dataset.change==='plan-done')await commit(s=>upsert(s,'plans',{status:node.checked?'done':'pending'},node.dataset.id));
   if(node.dataset.change==='step-done')await commit(s=>upsert(s,'plans',{steps:s.plans.find(p=>p.id===node.dataset.id).steps.map(step=>step.id===node.dataset.stepId?{...step,done:node.checked}:step)},node.dataset.id));
+});
+document.addEventListener('dragstart', event => {
+  const row = event.target.closest('[data-exercise-id]');
+  if (row && event.dataTransfer) event.dataTransfer.setData('text/plain', row.dataset.exerciseId);
+});
+document.addEventListener('dragover', event => {
+  if (event.target.closest('[data-group-drop]')) event.preventDefault();
+});
+document.addEventListener('drop', async event => {
+  const group = event.target.closest('[data-group-drop]');
+  if (!group || !event.dataTransfer) return;
+  event.preventDefault();
+  const exerciseId = event.dataTransfer.getData('text/plain');
+  if (!exerciseId) return;
+  await handleFitness(context, 'fit-assign-exercise-group', { dataset: { id: exerciseId, groupId: group.dataset.exerciseGroupId } });
 });
 async function init() {
   render();

@@ -1,10 +1,12 @@
-import { upsert, fromKg, toKg, localDate } from './domain.mjs';
+import { upsert, remove, fromKg, toKg, localDate } from './domain.mjs';
 
 let tab = 'routines';
 let selectedRoutineId = null;
 let selectedSessionId = null;
 let selectedFitnessDate = localDate();
 let fitnessCalendarOpen = false;
+let exerciseSelectionMode = false;
+let selectedExerciseIds = new Set();
 const weekdays = { 0: '周日', 1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六' };
 const tabs = { routines: '每周训练安排', exercises: '动作库', history: '训练记录' };
 const routineMatchesDate = (routine, date) => routine.date ? routine.date === date : routine.weekday === new Date(`${date}T12:00:00`).getDay();
@@ -51,6 +53,21 @@ function exerciseDetails(ctx, exercise) {
   ctx.formDialog(`动作详情 · ${exercise.name}`, `<p class="full note-body">${ctx.esc(exercise.notes || '暂无动作说明。')}</p>${exercise.videoUrl ? `<p class="full"><a class="button video-link" href="${ctx.esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">观看教学视频</a></p>` : '<p class="full muted">尚未添加教学视频链接。</p>'}`, () => true, '', '关闭');
 }
 
+function exerciseGroupName(ctx, groupId) {
+  return ctx.state.exerciseGroups.find(group => group.id === groupId)?.name || '未分组';
+}
+
+function exerciseGroupPanel(ctx) {
+  const groups = ctx.state.exerciseGroups;
+  return `<section class="panel exercise-groups-panel"><div class="section-head"><div><h2>动作组</h2><p class="muted">把动作拖到动作组中，训练安排时更容易找到。</p></div><button type="button" class="small primary" data-action="fit-exercise-group">新增动作组</button></div>${groups.length ? `<div class="exercise-group-list">${groups.map(group => `<div class="exercise-group-drop" data-exercise-group-id="${ctx.esc(group.id)}" data-group-drop="true"><div class="section-head"><strong>${ctx.esc(group.name)}</strong><span class="muted small">${ctx.state.exercises.filter(exercise => exercise.groupId === group.id).length} 个动作</span><div class="actions"><button type="button" class="small ghost" data-action="fit-exercise-group" data-id="${ctx.esc(group.id)}" aria-label="编辑动作组">编辑</button><button type="button" class="small ghost" data-action="fit-delete-exercise-group" data-id="${ctx.esc(group.id)}" aria-label="删除动作组">删除</button></div></div></div>`).join('')}</div>` : '<p class="muted">还没有动作组。新增动作组后可拖放动作归类。</p>'}</section>`;
+}
+
+function exerciseSelectionToolbar(ctx) {
+  if (!exerciseSelectionMode) return `<div class="toolbar exercise-selection-entry"><span class="spacer"></span>${ctx.button('选择动作', 'fit-bulk-toggle', '', 'ghost small')}</div>`;
+  const count = selectedExerciseIds.size;
+  return `<div class="toolbar exercise-selection-toolbar" role="toolbar" aria-label="批量动作操作"><span class="muted small">已选择 ${count} 个动作</span><span class="spacer"></span>${ctx.button('加入今日训练', 'fit-bulk-add-today', count ? '' : 'disabled', 'small')}${ctx.button('批量删除', 'fit-bulk-delete', count ? '' : 'disabled', 'danger small')}${ctx.button('完成选择', 'fit-bulk-toggle', '', 'ghost small')}</div>`;
+}
+
 function daySummary(ctx, date, routines, sessions) {
   const { esc, dateLabel } = ctx;
   const weekday = weekdays[new Date(`${date}T12:00:00`).getDay()];
@@ -86,8 +103,8 @@ export function renderFitness(ctx) {
   selectedSessionId = null;
   const toolbar = `<div class="tabs" role="tablist" aria-label="健身分区">${Object.entries(tabs).map(([key, label]) => button(label, 'fit-tab', `data-tab="${key}" role="tab" aria-selected="${tab === key}"`, tab === key ? 'active' : '')).join('')}</div>`;
   if (tab === 'exercises') {
-    return toolbar + dateToolbar(ctx) + fitnessCalendar(ctx, state) + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div><section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
-      ? `<div class="list">${state.exercises.map(exercise => `<article class="row exercise-row" data-exercise-id="${esc(exercise.id)}"><div class="row-main"><button type="button" class="link-button row-title" data-action="fit-exercise-details" ${attr(exercise.id)}>${esc(exercise.name)}</button>${exercise.notes ? `<p class="log-body muted">${esc(exercise.notes)}</p>` : ''}<div class="row-meta">${exercise.videoUrl ? '<span class="badge teal">有教学视频</span>' : '<span class="muted">未添加教学视频</span>'}</div></div><div class="exercise-actions" aria-label="动作操作">${exercise.videoUrl ? `<a class="button small video-link" href="${esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">教学视频</a>` : ''}<div class="exercise-swipe-actions"><button type="button" class="exercise-edit-action" data-action="fit-exercise" ${attr(exercise.id)} aria-label="编辑动作">✎</button><button type="button" class="exercise-delete-action" data-action="fit-delete-exercise" ${attr(exercise.id)} aria-label="删除动作">⌫</button></div></div></article>`).join('')}</div>`
+    return toolbar + dateToolbar(ctx) + fitnessCalendar(ctx, state) + exerciseGroupPanel(ctx) + `<div class="toolbar"><p class="muted">保存常练动作，训练时记录实际组数与重量。拖动动作条可归类。</p><span class="spacer"></span>${button('新增动作', 'fit-exercise', '', 'primary')}</div>${exerciseSelectionToolbar(ctx)}<section class="panel"><div class="section-head"><h2>我的动作库</h2><span class="muted small">${state.exercises.length} 个动作</span></div>${state.exercises.length
+      ? `<div class="list">${state.exercises.map(exercise => `<article class="row exercise-row ${selectedExerciseIds.has(exercise.id) ? 'exercise-selected' : ''}" draggable="true" data-exercise-id="${esc(exercise.id)}">${exerciseSelectionMode ? `<label class="exercise-select-control"><input type="checkbox" data-change="fit-exercise-select" data-id="${esc(exercise.id)}" aria-label="选择动作：${esc(exercise.name)}" ${selectedExerciseIds.has(exercise.id) ? 'checked' : ''}></label>` : ''}<div class="row-main"><button type="button" class="link-button row-title" data-action="fit-exercise-details" ${attr(exercise.id)}>${esc(exercise.name)}</button>${exercise.notes ? `<p class="log-body muted">${esc(exercise.notes)}</p>` : ''}<div class="row-meta"><span class="badge">${esc(exerciseGroupName(ctx, exercise.groupId))}</span>${exercise.videoUrl ? '<span class="badge teal">有教学视频</span>' : '<span class="muted">未添加教学视频</span>'}</div></div><div class="exercise-actions" aria-label="动作操作">${exercise.videoUrl ? `<a class="button small video-link" href="${esc(exercise.videoUrl)}" target="_blank" rel="noopener noreferrer">教学视频</a>` : ''}<div class="exercise-swipe-actions"><button type="button" class="exercise-edit-action" data-action="fit-exercise" ${attr(exercise.id)} aria-label="编辑动作">✎</button><button type="button" class="exercise-delete-action" data-action="fit-delete-exercise" ${attr(exercise.id)} aria-label="删除动作">⌫</button></div></div></article>`).join('')}</div>`
       : empty('先添加一个常练动作，例如深蹲或俯卧撑。', '新增动作', 'fit-exercise')}</section>`;
   }
   if (tab === 'history') {
@@ -148,6 +165,41 @@ export async function handleFitness(ctx, action, target) {
   if (action === 'fit-date') { selectedFitnessDate = target.dataset.date || target.value || localDate(); selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-month-prev' || action === 'fit-month-next') { selectedFitnessDate = shiftMonth(selectedFitnessDate, action === 'fit-month-prev' ? -1 : 1); selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-tab') { tab = target.dataset.tab; selectedSessionId = null; ctx.render(); return true; }
+  if (action === 'fit-bulk-toggle') {
+    exerciseSelectionMode = !exerciseSelectionMode;
+    if (!exerciseSelectionMode) selectedExerciseIds = new Set();
+    ctx.render();
+    return true;
+  }
+  if (action === 'fit-bulk-delete') {
+    const ids = [...selectedExerciseIds];
+    if (!ids.length) return true;
+    ctx.formDialog('批量删除动作', `<p class="full">将从动作库删除 ${ids.length} 个动作，并从训练安排中移除。训练历史会保留动作名称和数据。</p>`, async () => {
+      const saved = await ctx.commit(state => ids.reduce((next, exerciseId) => remove(next, 'exercises', exerciseId), state), '已删除所选动作');
+      if (saved) { exerciseSelectionMode = false; selectedExerciseIds = new Set(); ctx.render(); }
+      return saved;
+    }, '', '确认删除');
+    return true;
+  }
+  if (action === 'fit-bulk-add-today') {
+    const ids = [...selectedExerciseIds];
+    if (!ids.length) return true;
+    const date = localDate();
+    const names = ids.map(exerciseId => ctx.state.exercises.find(exercise => exercise.id === exerciseId)?.name).filter(Boolean);
+    const saved = await ctx.commit(state => upsert(state, 'routines', {
+      name: `今日训练 · ${names.join('、')}`, date, weekday: new Date(`${date}T12:00:00`).getDay(), exerciseIds: ids,
+      exerciseTargets: ids.map(exerciseId => ({ exerciseId, sets: 3, reps: 8, weightKg: 0 })),
+    }), '已加入今日训练');
+    if (saved) { exerciseSelectionMode = false; selectedExerciseIds = new Set(); ctx.render(); }
+    return true;
+  }
+  if (action === 'fit-exercise-select') {
+    const next = new Set(selectedExerciseIds);
+    if (target.checked) next.add(id); else next.delete(id);
+    selectedExerciseIds = next;
+    ctx.render();
+    return true;
+  }
   if (action === 'fit-back') { openSession(null); ctx.render(); return true; }
   if (action === 'fit-open-session') { selectedFitnessDate = ctx.state.sessions.find(record => record.id === id)?.date || selectedFitnessDate; openSession(id); ctx.render(); return true; }
   if (action === 'fit-exercise' || action === 'exercise') {
@@ -155,9 +207,21 @@ export async function handleFitness(ctx, action, target) {
     ctx.formDialog(exercise ? '编辑动作' : '新增动作',
       ctx.field('动作名称', 'name', exercise?.name, 'text', 'required maxlength="300"')
       + ctx.field('动作说明（可选）', 'notes', exercise?.notes, 'textarea', 'maxlength="10000"')
-      + ctx.field('教学视频链接（可选）', 'videoUrl', exercise?.videoUrl, 'url', 'maxlength="2000" placeholder="https://…"'),
-      data => ctx.commit(state => upsert(state, 'exercises', { name: data.get('name').trim(), notes: data.get('notes').trim(), videoUrl: data.get('videoUrl').trim() }, id), '动作已保存'),
+      + ctx.field('教学视频链接（可选）', 'videoUrl', exercise?.videoUrl, 'url', 'maxlength="2000" placeholder="https://…"')
+      + ctx.selectField('动作组（可选）', 'groupId', { '': '未分组', ...Object.fromEntries(ctx.state.exerciseGroups.map(group => [group.id, group.name])) }, exercise?.groupId || ''),
+      data => ctx.commit(state => upsert(state, 'exercises', { name: data.get('name').trim(), notes: data.get('notes').trim(), videoUrl: data.get('videoUrl').trim(), groupId: data.get('groupId') || null }, id), '动作已保存'),
       '动作库名称变更不会改写已经保存的训练历史。');
+    return true;
+  }
+  if (action === 'fit-exercise-group') {
+    const group = ctx.state.exerciseGroups.find(record => record.id === id);
+    ctx.formDialog(group ? '编辑动作组' : '新增动作组', ctx.field('动作组名称', 'name', group?.name, 'text', 'required maxlength="100"'),
+      data => ctx.commit(state => upsert(state, 'exerciseGroups', { name: data.get('name').trim() }, id), '动作组已保存'));
+    return true;
+  }
+  if (action === 'fit-assign-exercise-group') {
+    const groupId = target.dataset.groupId || null;
+    await ctx.commit(state => upsert(state, 'exercises', { groupId }, id), '动作组已更新');
     return true;
   }
   if (action === 'fit-exercise-details') {
@@ -270,7 +334,7 @@ export async function handleFitness(ctx, action, target) {
       action === 'fit-finish' ? '本次训练已完成' : '可以继续记录训练');
     return true;
   }
-  const deleteCollections = { 'fit-delete-exercise': 'exercises', 'fit-delete-routine': 'routines', 'fit-delete-session': 'sessions' };
+  const deleteCollections = { 'fit-delete-exercise': 'exercises', 'fit-delete-routine': 'routines', 'fit-delete-session': 'sessions', 'fit-delete-exercise-group': 'exerciseGroups' };
   if (deleteCollections[action]) { ctx.deleteDialog(deleteCollections[action], id); return true; }
   return false;
 }
