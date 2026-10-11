@@ -51,6 +51,7 @@ test('阶段4：动作和安排 CRUD、真实两组训练、训练中刷新后�
     assert.equal(await p.getByRole('tab', { name: '动作库', exact: true }).getAttribute('aria-selected'), 'true');
     await createExercise(p, '杠铃深蹲');
     await p.locator('.exercise-row').first().hover();
+    { const box = await p.locator('.exercise-row').first().boundingBox(); await p.mouse.move(box.x + 45, box.y + box.height / 2); await p.mouse.down(); await p.waitForTimeout(400); await p.mouse.move(box.x - 45, box.y + box.height / 2); await p.mouse.up(); }
     await p.getByRole('button', { name: '编辑动作', exact: true }).click();
     await p.getByLabel('动作说明（可选）').fill('稳定控制动作');
     await submit(p);
@@ -110,6 +111,7 @@ test('阶段4：计划完成不制造训练，动作和安排改名删除后仍�
     await p.getByRole('button', { name: '← 返回训练记录', exact: true }).click();
     await openTab(p, '动作库');
     await p.locator('.exercise-row').first().hover();
+    { const box = await p.locator('.exercise-row').first().boundingBox(); await p.mouse.move(box.x + 45, box.y + box.height / 2); await p.mouse.down(); await p.waitForTimeout(400); await p.mouse.move(box.x - 45, box.y + box.height / 2); await p.mouse.up(); }
     await p.getByRole('button', { name: '编辑动作', exact: true }).click();
     await p.getByLabel('动作名称', { exact: true }).fill('标准俯卧撑');
     await submit(p);
@@ -122,6 +124,7 @@ test('阶段4：计划完成不制造训练，动作和安排改名删除后仍�
     await nav(p, '健身计划');
     await openTab(p, '动作库');
     await p.locator('.exercise-row').first().hover();
+    { const box = await p.locator('.exercise-row').first().boundingBox(); await p.mouse.move(box.x + 45, box.y + box.height / 2); await p.mouse.down(); await p.waitForTimeout(400); await p.mouse.move(box.x - 45, box.y + box.height / 2); await p.mouse.up(); }
     await p.getByRole('button', { name: '删除动作', exact: true }).click();
     await submit(p, '确认删除');
     await openTab(p, '每周训练安排');

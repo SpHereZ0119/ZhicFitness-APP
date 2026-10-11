@@ -37,7 +37,7 @@ test('动作库选择模式支持批量删除二次确认和加入今日训练',
     await p.getByRole('button', { name: '选择动作', exact: true }).click();
     await p.getByLabel('选择动作：今日训练动作一', { exact: true }).check();
     await p.getByLabel('选择动作：今日训练动作二', { exact: true }).check();
-    await p.getByRole('button', { name: '加入今日训练', exact: true }).click();
+    await p.locator('.exercise-selection-toolbar').getByRole('button', { name: '加入今日训练', exact: true }).click();
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
     const state = await stateOf(p);
     assert.equal(state.routines.length, 1);
