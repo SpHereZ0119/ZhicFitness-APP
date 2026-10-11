@@ -30,6 +30,10 @@ test('健身与饮食计划以月历标记重点日期并可切换查看', async
     assert.equal(await p.locator('[data-calendar="fitness"] .calendar-day.selected').getAttribute('data-date'), '2026-11-08');
     await fitnessCalendar.getByRole('button', { name: '收起日历', exact: true }).click();
     assert.equal(await fitnessCalendar.locator('.calendar-grid').count(), 0);
+    await p.getByRole('tab', { name: '动作库', exact: true }).click();
+    assert.equal(await p.locator('[data-calendar="fitness"] .calendar-grid').count(), 0);
+    await p.getByRole('tab', { name: '训练记录', exact: true }).click();
+    assert.equal(await p.locator('[data-calendar="fitness"]').count(), 0);
     await nav(p, '饮食计划');
     const foodsDate = await p.getByLabel('查看日期', { exact: true }).inputValue();
     assert.equal(await p.locator('[data-calendar="diet"] .calendar-day.selected').getAttribute('data-date'), foodsDate);
