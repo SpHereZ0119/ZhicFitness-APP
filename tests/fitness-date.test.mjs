@@ -138,3 +138,28 @@ test('训练安排可选择动作组并将组内动作置顶保存', async () =>
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
+
+test('新增训练安排可搜索动作库并只显示匹配动作', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await openTab(p, '动作库');
+    for (const name of ['杠铃深蹲', '杠铃卧推', '俯卧撑']) {
+      await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+      await p.getByLabel('动作名称', { exact: true }).fill(name);
+      await submit(p);
+    }
+    await openTab(p, '每周训练安排');
+    await p.getByRole('button', { name: '新增训练安排', exact: true }).first().click();
+    const dialog = p.getByRole('dialog');
+    await dialog.getByLabel('安排名称', { exact: true }).fill('杠铃训练');
+    await dialog.getByLabel('搜索训练动作', { exact: true }).fill('杠铃');
+    assert.equal(await dialog.locator('.routine-exercise:not([hidden])').count(), 2);
+    assert.equal(await dialog.locator('.routine-exercise[hidden]').count(), 1);
+    assert.match(await dialog.textContent(), /杠铃深蹲/);
+    assert.match(await dialog.textContent(), /杠铃卧推/);
+    assert.doesNotMatch(await dialog.locator('.routine-exercise[hidden]').first().textContent(), /杠铃/);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});

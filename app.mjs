@@ -209,6 +209,15 @@ document.addEventListener('change',async event=>{
   if(node.dataset.change==='plan-done')await commit(s=>upsert(s,'plans',{status:node.checked?'done':'pending'},node.dataset.id));
   if(node.dataset.change==='step-done')await commit(s=>upsert(s,'plans',{steps:s.plans.find(p=>p.id===node.dataset.id).steps.map(step=>step.id===node.dataset.stepId?{...step,done:node.checked}:step)},node.dataset.id));
 });
+document.addEventListener('input', event => {
+  const search = event.target.closest('.routine-exercise-search');
+  if (!search) return;
+  const query = search.value.trim().toLocaleLowerCase();
+  search.closest('.field')?.querySelectorAll('.routine-exercise').forEach(row => {
+    const label = row.querySelector('label')?.textContent?.toLocaleLowerCase() || '';
+    row.hidden = Boolean(query) && !label.includes(query);
+  });
+});
 document.addEventListener('dragstart', event => {
   const row = event.target.closest('[data-exercise-id]');
   if (row && event.dataTransfer) event.dataTransfer.setData('text/plain', row.dataset.exerciseId);

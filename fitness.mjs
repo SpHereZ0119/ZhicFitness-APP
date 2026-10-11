@@ -92,7 +92,7 @@ function routineExerciseChoices(ctx, routine, preferredGroupId = '') {
     return aPriority - bPriority;
   });
   return `<div class="field full"><span>选择训练动作与计划目标</span>${ctx.state.exercises.length
-    ? `<div class="routine-exercise-list">${exercises.map(exercise => {
+    ? `<input class="routine-exercise-search" type="search" aria-label="搜索训练动作" placeholder="搜索动作名称"> <div class="routine-exercise-list">${exercises.map(exercise => {
       const target = targets.get(exercise.id);
       const field = (kind, label, value, extra = '') => `<label>${label}<input aria-label="${ctx.esc(`${label}：${exercise.name}`)}" name="target-${kind}-${ctx.esc(exercise.id)}" type="number" value="${ctx.esc(value)}" ${extra}></label>`;
       return `<div class="routine-exercise" data-routine-exercise="${ctx.esc(exercise.id)}"><label class="actions"><input type="checkbox" name="exerciseIds" value="${ctx.esc(exercise.id)}" ${chosen.includes(exercise.id) ? 'checked' : ''}>${ctx.esc(exercise.name)}</label><div class="exercise-targets">${field('sets', '计划组数', target?.sets ?? 3, 'min="1" step="1" required')}${field('reps', '计划次数', target?.reps ?? 8, 'min="1" step="1" required')}${field('weight', `计划重量（${unit}）`, target ? Number(fromKg(target.weightKg, unit).toFixed(8)) : 0, 'min="0" step="any" required')}</div></div>`;
