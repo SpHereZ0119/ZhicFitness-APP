@@ -260,7 +260,7 @@ function validateVersion(state, version) {
           textValue(record.name, '训练安排名称');
           numberValue(record.weekday, '训练星期', { integer: true });
           requireThat(record.weekday <= 6, '训练星期必须在 0 到 6 之间');
-          dateValue(record.date, '训练日期', true);
+          if (version >= 7) dateValue(record.date, '训练日期', true);
           arrayValue(record.exerciseIds, '训练动作');
           requireThat(new Set(record.exerciseIds).size === record.exerciseIds.length, '训练安排含有重复动作');
           for (const id of record.exerciseIds) reference(id, 'exercises', '训练动作');
