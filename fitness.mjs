@@ -7,6 +7,7 @@ let selectedFitnessDate = localDate();
 let fitnessCalendarOpen = false;
 const weekdays = { 0: '周日', 1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六' };
 const tabs = { routines: '每周训练安排', exercises: '动作库', history: '训练记录' };
+const routineMatchesDate = (routine, date) => routine.date ? routine.date === date : routine.weekday === new Date(`${date}T12:00:00`).getDay();
 export function openRoutine(id) { selectedRoutineId = id || null; selectedSessionId = null; tab = 'routines'; }
 export function openSession(id) {
   selectedSessionId = id || null;
@@ -38,7 +39,7 @@ function fitnessCalendar(ctx, state) {
   for (let day = 1; day <= days; day++) {
     const value = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const weekday = new Date(`${value}T12:00:00`).getDay();
-    const hasRoutine = state.routines.some(routine => routine.weekday === weekday);
+    const hasRoutine = state.routines.some(routine => routineMatchesDate(routine, value));
     const hasSession = state.sessions.some(session => session.date === value);
     const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedFitnessDate ? 'selected' : '', hasRoutine || hasSession ? 'has-records' : ''].filter(Boolean).join(' ');
     cells.push(`<button type="button" class="${classes}" data-action="fit-date" data-date="${value}" aria-label="${esc(dateLabel(value))}" ${value === selectedFitnessDate ? 'aria-current="date"' : ''}><strong>${day}</strong>${hasRoutine ? '<small>有安排</small>' : ''}${hasSession ? '<small>有记录</small>' : ''}</button>`);
@@ -100,10 +101,10 @@ export function renderFitness(ctx) {
   }
   const today = new Date(`${localDate()}T12:00:00`).getDay();
   const days = Array.from({ length: 7 }, (_, i) => (state.settings.weekStartsOn + i) % 7);
-  const dayRoutines = state.routines.filter(routine => routine.weekday === new Date(`${selectedFitnessDate}T12:00:00`).getDay());
+  const dayRoutines = state.routines.filter(routine => routineMatchesDate(routine, selectedFitnessDate));
   const daySessions = state.sessions.filter(session => session.date === selectedFitnessDate);
   return toolbar + dateToolbar(ctx) + fitnessCalendar(ctx, state) + daySummary(ctx, selectedFitnessDate, dayRoutines, daySessions) + `<div class="toolbar"><p class="muted">每周安排用于规划，实际训练单独记录。</p><span class="spacer"></span>${button('开始训练', 'fit-start')}${button('新增训练安排', 'fit-routine', '', 'primary')}</div>
-    <section class="panel"><div class="section-head"><h2>我的一周</h2><span class="muted small">按星期安排训练</span></div><div class="week-grid">${days.map(day => `<div class="day-card ${day === today ? 'today' : ''}"><h3>${weekdays[day]}</h3>${state.routines.filter(routine => routine.weekday === day).map(routine => `<p>${esc(routine.name)}</p>`).join('') || '<span class="muted">休息 / 未安排</span>'}</div>`).join('')}</div></section>
+    <section class="panel"><div class="section-head"><h2>我的一周</h2><span class="muted small">按星期安排训练；指定日期的安排显示在对应日期</span></div><div class="week-grid">${days.map(day => `<div class="day-card ${day === today ? 'today' : ''}"><h3>${weekdays[day]}</h3>${state.routines.filter(routine => !routine.date && routine.weekday === day).map(routine => `<p>${esc(routine.name)}</p>`).join('') || '<span class="muted">休息 / 未安排</span>'}</div>`).join('')}</div></section>
     <section class="panel"><div class="section-head"><h2>训练安排</h2><span class="muted small">${state.routines.length} 项安排</span></div>${state.routines.length
       ? `<div class="list">${state.routines.map(routine => {
         const names = routine.exerciseIds.map(id => state.exercises.find(exercise => exercise.id === id)?.name).filter(Boolean);
@@ -114,7 +115,8 @@ export function renderFitness(ctx) {
           return exercise && target ? `${exercise.name} · ${target.sets} 组 × ${target.reps} 次 · ${fmt(fromKg(target.weightKg, state.settings.weightUnit))} ${state.settings.weightUnit}` : exercise?.name;
         }).filter(Boolean);
         const plans = state.plans.filter(plan => plan.link?.type === 'routine' && plan.link.id === routine.id);
-        return `<article class="row" data-routine-id="${esc(routine.id)}" ${routine.id === selectedRoutineId ? 'data-selected-routine="true"' : ''}><div class="row-main"><strong class="row-title">${esc(routine.name)}</strong><div class="row-meta"><span class="badge">${weekdays[routine.weekday]}</span><span>${names.length} 个动作</span>${plans.map(plan => `<span>计划 ${esc(dateLabel(plan.date))} · ${plan.status === 'done' ? '已完成' : '待完成'}</span>`).join('')}</div><p class="muted small">${esc(targetText.join(' · ') || '尚未选择动作')}</p></div><div class="actions">${button('开始这次训练', 'fit-start', `data-routine-id="${esc(routine.id)}"`, 'small')}${button('安排到计划', 'fit-plan', attr(routine.id), 'small')}${button('编辑安排', 'fit-routine', attr(routine.id), 'ghost small')}${button('删除安排', 'fit-delete-routine', attr(routine.id), 'ghost small')}</div></article>`;
+        const schedule = routine.date ? `指定日期 ${dateLabel(routine.date)}` : weekdays[routine.weekday];
+        return `<article class="row" data-routine-id="${esc(routine.id)}" ${routine.id === selectedRoutineId ? 'data-selected-routine="true"' : ''}><div class="row-main"><strong class="row-title">${esc(routine.name)}</strong><div class="row-meta"><span class="badge">${esc(schedule)}</span><span>${names.length} 个动作</span>${plans.map(plan => `<span>计划 ${esc(dateLabel(plan.date))} · ${plan.status === 'done' ? '已完成' : '待完成'}</span>`).join('')}</div><p class="muted small">${esc(targetText.join(' · ') || '尚未选择动作')}</p></div><div class="actions">${button('开始这次训练', 'fit-start', `data-routine-id="${esc(routine.id)}"`, 'small')}${button('安排到计划', 'fit-plan', attr(routine.id), 'small')}${button('编辑安排', 'fit-routine', attr(routine.id), 'ghost small')}${button('删除安排', 'fit-delete-routine', attr(routine.id), 'ghost small')}</div></article>`;
       }).join('')}</div>`
       : empty('按自己的节奏，为一周安排训练。', '新增训练安排', 'fit-routine')}</section>`;
 }
@@ -167,10 +169,11 @@ export async function handleFitness(ctx, action, target) {
     const routine = ctx.state.routines.find(record => record.id === id);
     ctx.formDialog(routine ? '编辑训练安排' : '新增训练安排',
       ctx.field('安排名称', 'name', routine?.name, 'text', 'required maxlength="300"')
+      + ctx.field('具体训练日期（可选）', 'date', routine?.date || '', 'date')
       + ctx.selectField('训练星期', 'weekday', weekdays, String(routine?.weekday ?? new Date().getDay()))
       + routineExerciseChoices(ctx, routine),
       data => ctx.commit(state => upsert(state, 'routines', {
-        name: data.get('name').trim(), weekday: Number(data.get('weekday')), exerciseIds: data.getAll('exerciseIds'),
+        name: data.get('name').trim(), date: data.get('date'), weekday: Number(data.get('weekday')), exerciseIds: data.getAll('exerciseIds'),
         exerciseTargets: data.getAll('exerciseIds').map(exerciseId => ({
           exerciseId,
           sets: Number(data.get(`target-sets-${exerciseId}`)),

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  COLLECTIONS, createState, upsert, remove, titleForPlan, nutritionSummary,
+  COLLECTIONS, createState, upsert, remove, titleForPlan, nutritionSummary, migrateState,
   waterTotal, toKg, fromKg, toMl, fromMl, setSettings, validateState,
   makeBackup, parseBackup, previewBackup, localDate, weekStart,
 } from '../domain.mjs';
@@ -234,11 +234,26 @@ test('training numeric validation rejects zero/fractional reps, negative weight 
   assert.equal(last(state, 'sessions').entries[0].sets[0].weightKg, 0);
 });
 
-test('weekly arrangements validate day range and reject duplicate/missing exercises', () => {
+test('dated arrangements validate dates while preserving weekly compatibility', () => {
   const { state, exercise } = trainingFixture();
   for (const values of [{ weekday: -1 }, { weekday: 7 }, { weekday: 0.5 }, { exerciseIds: ['missing'] }, { exerciseIds: [exercise.id, exercise.id] }]) {
     assert.throws(() => upsert(state, 'routines', { name: '训练安排', ...values }));
   }
+  const dated = upsert(state, 'routines', { name: '指定日期训练', date: DAY, weekday: 0, exerciseIds: [exercise.id] });
+  assert.equal(dated.routines.at(-1).date, DAY);
+  assert.throws(() => upsert(state, 'routines', { name: '无效日期训练', date: '2026-02-29', exerciseIds: [exercise.id] }));
+  const weekly = upsert(state, 'routines', { name: '星期训练', weekday: 6, exerciseIds: [exercise.id] });
+  assert.equal(weekly.routines[0].date, '');
+});
+
+test('version 6 routine data migrates with an empty date field', () => {
+  const { state } = trainingFixture();
+  const legacy = structuredClone(state);
+  legacy.version = 6;
+  delete legacy.routines[0].date;
+  const migrated = migrateState(legacy);
+  assert.equal(migrated.version, 7);
+  assert.equal(migrated.routines[0].date, '');
 });
 
 test('nutrition totals include only actual foods for the chosen date and preserve missing-versus-zero semantics', () => {
@@ -355,7 +370,7 @@ test('backup round-trip contains every module, settings, stable IDs and associat
   const { state } = fullFixture();
   const backup = makeBackup(freeze(state));
   assert.equal(backup.app, 'zhic-life');
-  assert.equal(backup.version, 6);
+  assert.equal(backup.version, 7);
   assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
   const restored = parseBackup(JSON.stringify(backup));
   assert.deepEqual(restored, state);
@@ -379,7 +394,7 @@ test('corrupt JSON, wrong app, unsupported versions and missing envelope fields 
   for (const text of ['{', 'null', '[]', 'false', '"string"', '{}']) assert.throws(() => parseBackup(text));
   const changes = [
     backup => { backup.app = 'other'; },
-    backup => { backup.version = 7; },
+    backup => { backup.version = 8; },
     backup => { backup.data.version = 1; },
     backup => { delete backup.exportedAt; },
     backup => { backup.exportedAt = '2026-02-30'; },

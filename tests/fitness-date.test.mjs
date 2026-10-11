@@ -51,3 +51,28 @@ test('健身页可选择过去日期查看当天安排与实际训练', async ()
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
+
+test('健身安排可以绑定具体日期并只在当天显示', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await openTab(p, '动作库');
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('指定日期动作');
+    await submit(p);
+    await openTab(p, '每周训练安排');
+    await p.getByRole('button', { name: '新增训练安排', exact: true }).first().click();
+    await p.getByLabel('安排名称', { exact: true }).fill('周三专属安排');
+    await p.getByLabel('具体训练日期（可选）', { exact: true }).fill('2026-10-14');
+    await p.getByRole('dialog').getByLabel('指定日期动作', { exact: true }).check();
+    await submit(p);
+    await p.getByLabel('健身日期', { exact: true }).fill('2026-10-14');
+    await p.getByLabel('健身日期', { exact: true }).press('Tab');
+    assert.match(await p.locator('[data-fitness-day="2026-10-14"]').textContent(), /周三专属安排/);
+    await p.getByLabel('健身日期', { exact: true }).fill('2026-10-15');
+    await p.getByLabel('健身日期', { exact: true }).press('Tab');
+    assert.doesNotMatch(await p.locator('[data-fitness-day="2026-10-15"]').textContent(), /周三专属安排/);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});

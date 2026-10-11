@@ -7,7 +7,7 @@
  *   actualMinutes,notes,status,videoUrl}; projects:{name,status,targetDate,description};
  * workItems:{projectId,title,status};
  * milestones:{projectId,title,date,done}; devLogs:{projectId,date,content};
- * exercises:{name,notes,videoUrl}; routines:{name,weekday,exerciseIds,exerciseTargets};
+ * exercises:{name,notes,videoUrl}; routines:{name,weekday,date,exerciseIds,exerciseTargets};
  * sessions:{routineId,name,date,status,entries:[{id,exerciseId,name,
  *   sets:[{id,reps,weightKg}]}]}; mealPlans:{date,meal,title};
  * foods:{date,meal,name,portion,calories,protein,carbs,fat,imageData}; waters:{date,amountMl};
@@ -24,7 +24,7 @@ export const COLLECTIONS = Object.freeze([
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 7;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const SETTINGS = Object.freeze({
@@ -131,7 +131,7 @@ function defaults(collection) {
     case 'milestones': return { projectId: '', title: '', date, done: false };
     case 'devLogs': return { projectId: '', date, content: '' };
     case 'exercises': return { name: '', notes: '', videoUrl: '' };
-    case 'routines': return { name: '', weekday: new Date().getDay(), exerciseIds: [], exerciseTargets: [] };
+    case 'routines': return { name: '', weekday: new Date().getDay(), date: '', exerciseIds: [], exerciseTargets: [] };
     case 'sessions': return { routineId: null, name: '', date, status: 'active', entries: [] };
     case 'mealPlans': return { date, meal: 'breakfast', title: '' };
     case 'foods': return { date, meal: 'breakfast', name: '', portion: '', calories: null, protein: null, carbs: null, fat: null, imageData: '' };
@@ -182,6 +182,7 @@ function validateVersion(state, version) {
         || (version <= 3 && collection === 'exercises' && key === 'videoUrl')
         || (version <= 4 && collection === 'routines' && key === 'exerciseTargets')
         || (version <= 5 && collection === 'foods' && key === 'imageData')
+        || (version <= 6 && collection === 'routines' && key === 'date')
       ));
       objectKeys(record, [...META, ...fields], collection);
       identify(record.id, collection);
@@ -259,6 +260,7 @@ function validateVersion(state, version) {
           textValue(record.name, '训练安排名称');
           numberValue(record.weekday, '训练星期', { integer: true });
           requireThat(record.weekday <= 6, '训练星期必须在 0 到 6 之间');
+          dateValue(record.date, '训练日期', true);
           arrayValue(record.exerciseIds, '训练动作');
           requireThat(new Set(record.exerciseIds).size === record.exerciseIds.length, '训练安排含有重复动作');
           for (const id of record.exerciseIds) reference(id, 'exercises', '训练动作');
@@ -336,6 +338,11 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 6) {
+    validateVersion(state, 6);
+    return validateState({ ...clone(state), version: CURRENT_VERSION,
+      routines: state.routines.map(routine => ({ ...routine, date: '' })) });
+  }
   if (state?.version === 5) {
     validateVersion(state, 5);
     return validateState({ ...clone(state), version: CURRENT_VERSION,
