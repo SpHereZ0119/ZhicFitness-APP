@@ -48,3 +48,40 @@ test('动作库支持教学视频按钮和可展开的动作详情', async () =>
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
+
+test('动作库编辑删除收纳到滑动操作区，删除需要二次确认', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    await nav(p, '健身计划');
+    await p.getByRole('tab', { name: '动作库', exact: true }).click();
+    await p.getByRole('button', { name: '新增动作', exact: true }).first().click();
+    await p.getByLabel('动作名称', { exact: true }).fill('杠铃深蹲');
+    await p.getByLabel('教学视频链接（可选）', { exact: true }).fill('https://video.example.test/squat');
+    await submit(p);
+
+    const row = p.locator('[data-exercise-id]').first();
+    assert.equal(await row.locator('button').filter({ hasText: '编辑动作' }).count(), 0);
+    assert.equal(await row.locator('button').filter({ hasText: '删除动作' }).count(), 0);
+    assert.equal(await row.locator('a.video-link').getAttribute('href'), 'https://video.example.test/squat');
+    assert.equal(await row.locator('.exercise-edit-action').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(228, 173, 39)');
+    assert.equal(await row.locator('.exercise-delete-action').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(182, 67, 62)');
+
+    await row.locator('.row-title').focus();
+    assert.equal(await row.locator('.exercise-delete-action').isVisible(), true);
+    await row.locator('.exercise-delete-action').focus();
+    await row.locator('.exercise-delete-action').click();
+    assert.equal(await p.getByRole('dialog', { name: '删除记录' }).isVisible(), true);
+    assert.match(await p.getByRole('dialog').textContent(), /动作将从动作库/);
+    await p.getByRole('button', { name: '取消', exact: true }).click();
+    await p.getByRole('dialog').waitFor({ state: 'hidden' });
+    assert.equal((await stateOf(p)).exercises.length, 1);
+
+    await row.locator('.exercise-delete-action').focus();
+    await row.locator('.exercise-delete-action').click();
+    await submit(p, '确认删除');
+    assert.equal((await stateOf(p)).exercises.length, 0);
+    assert.equal(await p.locator('[data-exercise-id]').count(), 0);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
