@@ -4,6 +4,7 @@ let tab = 'routines';
 let selectedRoutineId = null;
 let selectedSessionId = null;
 let selectedFitnessDate = localDate();
+let fitnessCalendarOpen = false;
 const weekdays = { 0: '周日', 1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六' };
 const tabs = { routines: '每周训练安排', exercises: '动作库', history: '训练记录' };
 export function openRoutine(id) { selectedRoutineId = id || null; selectedSessionId = null; tab = 'routines'; }
@@ -42,7 +43,7 @@ function fitnessCalendar(ctx, state) {
     const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedFitnessDate ? 'selected' : '', hasRoutine || hasSession ? 'has-records' : ''].filter(Boolean).join(' ');
     cells.push(`<button type="button" class="${classes}" data-action="fit-date" data-date="${value}" aria-label="${esc(dateLabel(value))}" ${value === selectedFitnessDate ? 'aria-current="date"' : ''}><strong>${day}</strong>${hasRoutine ? '<small>有安排</small>' : ''}${hasSession ? '<small>有记录</small>' : ''}</button>`);
   }
-  return `<section class="panel calendar-panel" data-calendar="fitness"><div class="section-head"><h2>${year}年${month}月</h2><div class="actions"><button type="button" class="small" data-action="fit-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="fit-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedFitnessDate)} 已选中；带标记的日期有安排或实际训练。</p></section>`;
+  return `<section class="panel calendar-panel" data-calendar="fitness"><div class="section-head"><h2>训练日历</h2><button type="button" class="small" data-action="fit-calendar-toggle" aria-expanded="${fitnessCalendarOpen}">${fitnessCalendarOpen ? '收起日历' : '展开日历'}</button></div>${fitnessCalendarOpen ? `<div class="section-head"><h3>${year}年${month}月</h3><div class="actions"><button type="button" class="small" data-action="fit-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="fit-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedFitnessDate)} 已选中；带标记的日期有安排或实际训练。</p>` : `<p class="muted small">日历已隐藏。点击“展开日历”查看训练安排和记录。</p>`}</section>`;
 }
 
 function exerciseDetails(ctx, exercise) {
@@ -141,6 +142,7 @@ function renderSession(ctx, session) {
 export async function handleFitness(ctx, action, target) {
   const { id, routineId, sessionId, entryId, setId } = target.dataset;
   if (action === 'fit-today') { selectedFitnessDate = localDate(); selectedSessionId = null; ctx.render(); return true; }
+  if (action === 'fit-calendar-toggle') { fitnessCalendarOpen = !fitnessCalendarOpen; ctx.render(); return true; }
   if (action === 'fit-date') { selectedFitnessDate = target.dataset.date || target.value || localDate(); selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-month-prev' || action === 'fit-month-next') { selectedFitnessDate = shiftMonth(selectedFitnessDate, action === 'fit-month-prev' ? -1 : 1); selectedSessionId = null; ctx.render(); return true; }
   if (action === 'fit-tab') { tab = target.dataset.tab; selectedSessionId = null; ctx.render(); return true; }

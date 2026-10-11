@@ -17,6 +17,10 @@ test('健身与饮食计划以月历标记重点日期并可切换查看', async
     await p.getByLabel('训练星期', { exact: true }).selectOption('4');
     await p.getByRole('dialog').getByLabel('日历动作', { exact: true }).check();
     await submit(p);
+    const fitnessCalendar = p.locator('[data-calendar="fitness"]');
+    assert.equal(await fitnessCalendar.locator('.calendar-grid').count(), 0);
+    await fitnessCalendar.getByRole('button', { name: '展开日历', exact: true }).click();
+    assert.equal(await fitnessCalendar.locator('.calendar-grid').count(), 1);
     const fitnessMarked = p.locator('[data-calendar="fitness"] .calendar-day.has-records');
     assert.ok(await fitnessMarked.count() >= 1);
     await p.locator('[data-calendar="fitness"] .calendar-day[data-date="2026-10-08"]').click();
@@ -24,6 +28,8 @@ test('健身与饮食计划以月历标记重点日期并可切换查看', async
     assert.equal(await p.locator('[data-calendar="fitness"] .calendar-day.selected').getAttribute('data-date'), '2026-10-08');
     await p.locator('[data-calendar="fitness"] [data-action="fit-month-next"]').click();
     assert.equal(await p.locator('[data-calendar="fitness"] .calendar-day.selected').getAttribute('data-date'), '2026-11-08');
+    await fitnessCalendar.getByRole('button', { name: '收起日历', exact: true }).click();
+    assert.equal(await fitnessCalendar.locator('.calendar-grid').count(), 0);
     await nav(p, '饮食计划');
     const foodsDate = await p.getByLabel('查看日期', { exact: true }).inputValue();
     assert.equal(await p.locator('[data-calendar="diet"] .calendar-day.selected').getAttribute('data-date'), foodsDate);
