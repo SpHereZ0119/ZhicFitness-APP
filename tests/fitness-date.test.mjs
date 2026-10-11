@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, submit, nav } from './browser-helpers.mjs';
+import { setup, stateOf, submit, nav } from './browser-helpers.mjs';
 
 async function saved(page) { await page.locator('#save-status').filter({ hasText: '已保存' }).waitFor(); }
 async function openTab(page, name) { await page.getByRole('tab', { name, exact: true }).click(); }
@@ -73,6 +73,37 @@ test('健身安排可以绑定具体日期并只在当天显示', async () => {
     await p.getByLabel('健身日期', { exact: true }).fill('2026-10-15');
     await p.getByLabel('健身日期', { exact: true }).press('Tab');
     assert.doesNotMatch(await p.locator('[data-fitness-day="2026-10-15"]').textContent(), /周三专属安排/);
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+test('已有 v6 本地数据库首次打开时会迁移到当前数据版本', async () => {
+  const app = await setup();
+  try {
+    const p = app.page;
+    const legacy = await stateOf(p);
+    legacy.version = 6;
+    await p.evaluate(async state => {
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase('zhic-life-local-v1');
+        request.onsuccess = resolve; request.onerror = reject;
+        request.onblocked = () => reject(new Error('旧数据库未关闭'));
+      });
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('zhic-life-local-v1', 6);
+        request.onupgradeneeded = () => request.result.createObjectStore('documents');
+        request.onsuccess = () => resolve(request.result); request.onerror = reject;
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('documents', 'readwrite');
+        tx.objectStore('documents').put(state, 'current');
+        tx.oncomplete = resolve; tx.onerror = reject;
+      });
+      db.close();
+    }, legacy);
+    await p.goto(app.url);
+    await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
+    assert.equal((await stateOf(p)).version, 7);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
