@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+# ZhicFitness-APP
+
+为生活学习提效。
+
 # ZHIC · 个人工作台
 
 只在你的电脑运行的个人学习与生活工作台。需求依据见 [PRD.md](PRD.md)，开发及测试进度见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)。
