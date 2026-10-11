@@ -110,7 +110,7 @@ test('动作库可通过加入图标加入今日训练且不会重复添加', as
     assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
     assert.deepEqual(state.routines.find(routine => routine.date === '2026-10-11').exerciseIds, [state.exercises[0].id]);
     await row.getByRole('button', { name: '加入今日训练', exact: true }).click({ force: true });
-    assert.match(await p.locator('#toast').textContent(), /已加入今日训练/);
+    assert.match(await p.locator('#toast').textContent(), /已在今日训练中/);
     state = await stateOf(p);
     assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
     assert.deepEqual(app.errors, []);
@@ -139,6 +139,9 @@ test('动作操作区不会因悬停显示，长按左滑后才显示', async ()
     assert.equal(await row.getByRole('button', { name: '加入今日训练', exact: true }).isVisible(), true);
     assert.equal(await row.getByRole('button', { name: '编辑动作', exact: true }).isVisible(), true);
     assert.equal(await row.getByRole('button', { name: '删除动作', exact: true }).isVisible(), true);
+    assert.equal(await row.getByRole('button', { name: '加入今日训练', exact: true }).getAttribute('title'), '加入今日训练');
+    assert.equal(await row.getByRole('button', { name: '编辑动作', exact: true }).getAttribute('title'), '编辑动作');
+    assert.equal(await row.getByRole('button', { name: '删除动作', exact: true }).getAttribute('title'), '删除动作');
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

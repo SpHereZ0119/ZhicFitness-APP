@@ -209,10 +209,11 @@ function renderPage() {
   body.innerHTML = `<section class="panel"><div class="section-head"><h2>${pages.find(item=>item[0]===page)[1]}</h2></div>${empty('还没有记录，从自己的第一步开始。')}</section>`;
 }
 window.addEventListener('hashchange', () => { const next=location.hash.slice(1)||'home';if(page==='home' && next==='plans')selectedDate=localDate();routeTransition = next !== page;page=next;render();routeTransition=false; });
-document.addEventListener('pointerdown', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && !control.disabled && !control.getAttribute('aria-disabled')) control.classList.add('is-pressed'); });
-document.addEventListener('pointerup', event => { event.target.closest('button, a, [role="button"]')?.classList.remove('is-pressed'); });
-document.addEventListener('pointercancel', event => { event.target.closest('button, a, [role="button"]')?.classList.remove('is-pressed'); });
-document.addEventListener('pointerleave', event => { event.target.closest('button, a, [role="button"]')?.classList.remove('is-pressed'); }, true);
+const eventControl = event => event.target && typeof event.target.closest === 'function' ? event.target.closest('button, a, [role="button"]') : null;
+document.addEventListener('pointerdown', event => { const control = eventControl(event); if (control && !control.disabled && !control.getAttribute('aria-disabled')) control.classList.add('is-pressed'); });
+document.addEventListener('pointerup', event => { eventControl(event)?.classList.remove('is-pressed'); });
+document.addEventListener('pointercancel', event => { eventControl(event)?.classList.remove('is-pressed'); });
+document.addEventListener('pointerleave', event => { eventControl(event)?.classList.remove('is-pressed'); }, true);
 document.addEventListener('keydown', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && (event.key === 'Enter' || event.key === ' ' ) && !control.disabled) control.classList.add('is-pressed'); });
 document.addEventListener('keyup', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && (event.key === 'Enter' || event.key === ' ')) control.classList.remove('is-pressed'); });
 window.addEventListener('blur', () => document.querySelectorAll('.is-pressed').forEach(node => node.classList.remove('is-pressed')));
