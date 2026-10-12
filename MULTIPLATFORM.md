@@ -32,4 +32,6 @@ https://spherez0119.github.io/ZhicFitness-APP/
 
 `tests/multiplatform.test.mjs` 检查子目录部署、320/390/430/900/1440px、断网刷新和 JSON 备份；`tests/mobile-acceptance.test.mjs` 用八模块实际记录验证手机布局、长按操作、图片解码、导出导入和刷新；`tests/desktop.test.mjs` 启动实际 Electron 程序，验证保存、导出和关闭重开；`tests/native-adapter.test.mjs` 验证手机备份失败与返回键处理。
 
-可设置 `ZHIC_BROWSER_ENGINE=webkit` 单独运行手机验收测试，覆盖 Safari 内核。Android APK 已完成实际构建与签名校验。没有连接手机，本次验收未覆盖 iPhone/Android 真机安装和系统分享菜单。
+可设置 `ZHIC_BROWSER_ENGINE=webkit` 单独运行手机验收测试，覆盖 Safari 内核。Android APK 已完成实际构建与签名校验，并在 Android 16 模拟器验收保存、关闭重开、返回键、完整备份和系统分享菜单。启动模拟器并安装 APK 后运行 `npm run test:android` 可重跑原生验收。
+
+没有连接真实手机，本次验收未覆盖 iPhone/Android 真机安装。iPhone 通过主屏幕离线网页使用，首次联网加载完成再关闭网络；外部教学视频仍需网络。旧网页和新 Windows 程序属于独立数据空间，迁移前请在旧版导出 JSON，再在新程序导入。三个端之间通过备份迁移，不自动同步。

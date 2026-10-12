@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createNativeAdapter } from '../native-adapter.mjs';
+import { isExternalWebLink } from '../runtime.mjs';
+
+test('手机导航的 Hash 和同源地址留在应用内，只有外部网页打开浏览器', () => {
+  const current='https://localhost/index.html#home';
+  assert.equal(isExternalWebLink('#fitness',current),false);
+  assert.equal(isExternalWebLink('https://localhost/index.html#settings',current),false);
+  assert.equal(isExternalWebLink('https://www.bilibili.com/video/test',current),true);
+  assert.equal(isExternalWebLink('javascript:alert(1)',current),false);
+  assert.equal(isExternalWebLink('blob:https://localhost/test',current),false);
+});
 
 test('手机备份先写完整 UTF-8 文件，再分享真实文件地址', async () => {
   const calls = [];

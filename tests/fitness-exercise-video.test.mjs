@@ -38,6 +38,7 @@ test('动作库支持教学视频按钮和可展开的动作详情', async () =>
     await row.getByRole('button', { name: '编辑动作', exact: true }).click();
     await p.getByLabel('教学视频链接（可选）', { exact: true }).fill('javascript:alert(1)');
     await p.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click();
+    await p.getByRole('dialog').locator('.form-error').filter({hasText:'http 或 https'}).waitFor();
     assert.equal(await p.getByRole('dialog').isVisible(), true);
     assert.match(await p.getByRole('dialog').locator('.form-error').textContent(), /http 或 https/);
     assert.equal((await stateOf(p)).exercises[0].videoUrl, 'https://video.example.test/row');
@@ -109,7 +110,9 @@ test('动作库可通过加入图标加入今日训练且不会重复添加', as
     let state = await stateOf(p);
     assert.equal(state.routines.filter(routine => routine.date === localDate()).length, 1);
     assert.deepEqual(state.routines.find(routine => routine.date === localDate()).exerciseIds, [state.exercises[0].id]);
-    await row.getByRole('button', { name: '加入今日训练', exact: true }).click({ force: true });
+    await row.getByRole('button', { name: '加入今日训练', exact: true }).focus();
+    await row.getByRole('button', { name: '加入今日训练', exact: true }).click();
+    await p.waitForFunction(() => document.querySelector('#toast').textContent.includes('已在今日训练中'));
     assert.match(await p.locator('#toast').textContent(), /已在今日训练中/);
     state = await stateOf(p);
     assert.equal(state.routines.filter(routine => routine.date === localDate()).length, 1);

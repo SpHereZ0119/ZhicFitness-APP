@@ -7,6 +7,12 @@ const isNative = () => Boolean(window.Capacitor?.isNativePlatform?.());
 let nativePromise;
 const nativeAdapter = () => nativePromise ||= import('./native.mjs').then(module => module.native);
 
+export function isExternalWebLink(href, currentURL) {
+  const current = new URL(currentURL);
+  const target = new URL(href, current);
+  return ['http:', 'https:'].includes(target.protocol) && target.origin !== current.origin;
+}
+
 export async function enableNative({ onBack, toast }) {
   if (!isNative()) return;
   try {
@@ -14,7 +20,7 @@ export async function enableNative({ onBack, toast }) {
     await native.listenBack(onBack);
     document.addEventListener('click', event => {
       const link = event.target.closest('a[href]');
-      if (!link || !/^https?:\/\//i.test(link.href)) return;
+      if (!link || !isExternalWebLink(link.href, location.href)) return;
       event.preventDefault();
       native.openVideo(link.href).catch(error => toast(`无法打开链接：${error.message}`, true));
     });

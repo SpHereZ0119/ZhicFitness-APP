@@ -14,7 +14,8 @@
     "desktop:installer": "npm run build:web && electron-builder --win nsis",
     "android:sync": "npm run build:web && npx cap sync android",
     "android:build": "node scripts/build-mobile.mjs",
-    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:android": "node scripts/verify-android.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.3",
