@@ -1,0 +1,8 @@
+{
+  "appId": "com.zhic.personal",
+  "appName": "ZHIC 个人工作台",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

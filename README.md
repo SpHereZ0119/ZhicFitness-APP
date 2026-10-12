@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ZhicFitness-APP
 
 为生活学习提效。
@@ -6,6 +5,8 @@
 # ZHIC · 个人工作台
 
 只在你的电脑运行的个人学习与生活工作台。需求依据见 [PRD.md](PRD.md)，开发及测试进度见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)。
+
+Windows、Android 和 iPhone 的运行方式见 [MULTIPLATFORM.md](MULTIPLATFORM.md)。
 
 ## 打开应用
 
@@ -60,4 +61,4 @@ node --test --test-concurrency=1 tests/*.test.mjs
 3. 正常重启电脑，再双击 `START.cmd`，使用原浏览器配置打开固定地址。
 4. 确认备忘及各模块记录保留；此步骤不包含清除网站数据。
 
-第一版包含七个模块，没有登录、联网数据服务、云同步、咨询工作或手机端。
+当前版本包含 8 个模块，并提供 Windows 独立便携版、Android APK 与 iPhone Safari 离线版。三个端默认各自保存本地数据，使用“数据与设置”里的 JSON 备份在设备间迁移。

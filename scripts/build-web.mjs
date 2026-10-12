@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { build as bundle } from 'esbuild';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const webFiles = ['index.html', 'styles.css', 'app.mjs', 'domain.mjs', 'storage.mjs', 'learning.mjs', 'development.mjs', 'fitness.mjs', 'diet.mjs', 'gaming.mjs', 'settings.mjs', 'runtime.mjs', 'manifest.webmanifest', 'icons/icon.svg'];
@@ -27,6 +28,8 @@ export async function buildWeb() {
   await mkdir(path.join(dest, 'icons'), { recursive: true });
   const hash = createHash('sha256');
   for (const name of webFiles) { const data = await readFile(path.join(root, name)); hash.update(data); await copyFile(path.join(root, name), path.join(dest, name)); }
+  await bundle({ entryPoints: [path.join(root, 'native.mjs')], outfile: path.join(dest, 'native.mjs'), bundle: true, format: 'esm', target: 'es2020', minify: true });
+  hash.update(await readFile(path.join(dest, 'native.mjs')));
   for (const size of [192, 512]) await writeFile(path.join(dest, `icons/icon-${size}.png`), png(size));
   const worker = await readFile(path.join(root, 'sw.js'), 'utf8');
   hash.update(worker);

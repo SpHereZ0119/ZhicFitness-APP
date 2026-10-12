@@ -1,4 +1,5 @@
 import { COLLECTIONS, setSettings, makeBackup, parseBackup, previewBackup, localDate, validateState } from './domain.mjs';
+import { exportBackupFile } from './runtime.mjs';
 
 const collectionNames = {
   memos: '备忘', plans: '今日计划', studyTopics: '学习主题', studyEntries: '学习安排', projects: '开发项目', workItems: '开发工作项',
@@ -25,25 +26,17 @@ function countsHtml(ctx, state) {
 function timestampLabel(value) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
 }
-function downloadBackup(state, suffix = '') {
+async function downloadBackup(state, suffix = '') {
   const backup = makeBackup(state);
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
   const time = new Date();
   const stamp = [time.getHours(), time.getMinutes(), time.getSeconds()].map(value => String(value).padStart(2, '0')).join('');
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `zhic-life-${localDate(time)}-${stamp}${suffix}.json`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return exportBackupFile(JSON.stringify(backup, null, 2), `zhic-life-${localDate(time)}-${stamp}${suffix}.json`);
 }
 
 export function renderSettings(ctx) {
   const { state, esc, button } = ctx;
   return `<section class="panel"><div class="section-head"><h2>个人偏好</h2>${button('修改偏好', 'settings-preferences', '', 'small')}</div><div class="metric-grid"><div class="metric"><small>日期格式</small><p>${esc(dateFormats[state.settings.dateFormat])}</p></div><div class="metric"><small>每周起始日</small><p>${weekStarts[state.settings.weekStartsOn]}</p></div><div class="metric"><small>重量与饮水单位</small><p>${esc(weightUnits[state.settings.weightUnit])} · ${esc(waterUnits[state.settings.waterUnit])}</p></div></div><p class="muted small">更改单位会换算显示，历史记录的实际重量和饮水量保持不变。</p></section>
-    <section class="panel"><div class="section-head"><h2>本机数据</h2><span class="badge teal">仅保存在本地</span></div><p class="log-body">数据保存在这台电脑的浏览器中。请始终使用同一浏览器配置和同一本机地址打开应用；刷新、关闭或重新打开后，已保存的记录会保留。</p><p class="notice">清除浏览器的网站数据会删除本地记录。请定期导出备份，并把文件保存在电脑上妥善的位置。</p><p class="muted small">备份格式版本：${state.version}。完整备份包含所有模块、个人偏好和关联关系。</p><div class="section-divider"></div>${countsHtml(ctx, state)}<div class="toolbar">${button('导出完整备份', 'settings-export', '', 'primary')}</div></section>
+    <section class="panel"><div class="section-head"><h2>本机数据</h2><span class="badge teal">仅保存在本地</span></div><p class="log-body">数据保存在当前设备的应用或浏览器中。各设备独立保存；刷新、关闭或重新打开后，已保存的记录会保留。换设备时，请先导出备份，再在新设备导入。</p><p class="notice">卸载应用或清除网站数据会删除本地记录。请定期导出备份，将文件另存到妥善的位置。</p><p class="muted small">备份格式版本：${state.version}。完整备份包含所有模块、个人偏好和关联关系。</p><div class="section-divider"></div>${countsHtml(ctx, state)}<div class="toolbar">${button('导出完整备份', 'settings-export', '', 'primary')}</div></section>
     <section class="panel"><div class="section-head"><h2>从文件恢复</h2></div><p class="muted">先检查文件，再预览备份内容。确认后整体替换当前数据，恢复前会在本机保存一份安全备份。</p><div class="field"><label>选择备份文件<input id="backup-file" type="file" accept=".json,application/json" aria-label="选择备份文件"></label></div></section>
     <section class="panel"><div class="section-head"><h2>上次恢复前的安全备份</h2></div><p class="muted">恢复文件时，替换前的数据会保留为一份本地安全备份。可以预览、找回或导出这份数据；下一次恢复会用当前数据更新安全备份。</p><div class="toolbar">${button('预览安全备份', 'settings-preview-safety')}${button('导出安全备份', 'settings-export-safety')}</div></section>`;
 }
@@ -63,7 +56,7 @@ export async function handleSettings(ctx, action) {
     return true;
   }
   if (action === 'settings-export') {
-    try { downloadBackup(ctx.state); ctx.toast('完整备份已生成，请保存在电脑上。'); }
+    try { const result = await downloadBackup(ctx.state); ctx.toast(result === 'shared' ? '备份分享已完成，请确认文件已保存。' : '完整备份已生成，请保存文件。'); }
     catch (error) { ctx.toast(`导出失败：${error.message}`, true); }
     return true;
   }
@@ -72,7 +65,7 @@ export async function handleSettings(ctx, action) {
       const safety = await ctx.getSafety();
       if (!safety) { ctx.toast('尚无安全备份。首次恢复文件后会保留替换前的数据。'); return true; }
       validateState(safety.data);
-      if (action === 'settings-export-safety') { downloadBackup(safety.data, '-safety'); ctx.toast('安全备份已生成。'); return true; }
+      if (action === 'settings-export-safety') { await downloadBackup(safety.data, '-safety'); ctx.toast('安全备份已生成。'); return true; }
       ctx.formDialog('安全备份预览', `<p class="full">保存时间：${ctx.esc(timestampLabel(safety.savedAt))}</p>${countsHtml(ctx, safety.data)}`,
         () => ctx.replace(safety.data), '恢复安全备份会整体替换当前数据，同时把当前数据保存成新的安全备份。', '恢复安全备份');
     } catch (error) { ctx.toast(`无法读取安全备份：${error.message}`, true); }

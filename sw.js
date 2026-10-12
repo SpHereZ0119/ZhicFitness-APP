@@ -1,5 +1,5 @@
 const CACHE = 'zhic-shell-__BUILD_ID__';
-const ASSETS = ['./', './index.html', './styles.css', './app.mjs', './domain.mjs', './storage.mjs', './learning.mjs', './development.mjs', './fitness.mjs', './diet.mjs', './gaming.mjs', './settings.mjs', './runtime.mjs', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
+const ASSETS = ['./', './index.html', './styles.css', './app.mjs', './domain.mjs', './storage.mjs', './learning.mjs', './development.mjs', './fitness.mjs', './diet.mjs', './gaming.mjs', './settings.mjs', './runtime.mjs', './native.mjs', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil((async () => {
   for (const key of await caches.keys()) if (key.startsWith('zhic-shell-') && key !== CACHE) await caches.delete(key);

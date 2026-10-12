@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setup, stateOf, submit, nav } from './browser-helpers.mjs';
-import { createState, migrateState, upsert } from '../domain.mjs';
+import { createState, migrateState, upsert, localDate } from '../domain.mjs';
 
 test('v3动作库数据迁移后保留动作说明并补齐视频字段', () => {
   let state = upsert(createState(), 'exercises', { name: '旧动作', notes: '旧说明' });
@@ -107,12 +107,12 @@ test('动作库可通过加入图标加入今日训练且不会重复添加', as
     await row.getByRole('button', { name: '加入今日训练', exact: true }).click();
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
     let state = await stateOf(p);
-    assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
-    assert.deepEqual(state.routines.find(routine => routine.date === '2026-10-11').exerciseIds, [state.exercises[0].id]);
+    assert.equal(state.routines.filter(routine => routine.date === localDate()).length, 1);
+    assert.deepEqual(state.routines.find(routine => routine.date === localDate()).exerciseIds, [state.exercises[0].id]);
     await row.getByRole('button', { name: '加入今日训练', exact: true }).click({ force: true });
     assert.match(await p.locator('#toast').textContent(), /已在今日训练中/);
     state = await stateOf(p);
-    assert.equal(state.routines.filter(routine => routine.date === '2026-10-11').length, 1);
+    assert.equal(state.routines.filter(routine => routine.date === localDate()).length, 1);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
