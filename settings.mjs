@@ -3,7 +3,7 @@ import { exportBackupFile } from './runtime.mjs';
 
 const collectionNames = {
   memos: '备忘', plans: '今日计划', studyTopics: '学习主题', studyEntries: '学习安排', projects: '开发项目', workItems: '开发工作项',
-  milestones: '里程碑', devLogs: '开发日志', exercises: '健身动作', routines: '训练安排',
+  milestones: '里程碑', devLogs: '开发日志', exerciseGroups: '动作组', exercises: '健身动作', routines: '训练安排',
   sessions: '实际训练', mealPlans: '餐食安排', foods: '实际饮食', waters: '饮水记录',
   games: '游戏', plays: '游玩记录',
 };
