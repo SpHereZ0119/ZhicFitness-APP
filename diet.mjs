@@ -53,7 +53,8 @@ function dietCalendar(ctx, state, selectedDate) {
     const classes = ['calendar-day', value === localDate() ? 'today' : '', value === selectedDate ? 'selected' : '', details.length ? 'has-records' : ''].filter(Boolean).join(' ');
     cells.push(`<button type="button" class="${classes}" data-action="diet-date" data-date="${value}" aria-label="${esc(`${dateLabel(value)}：${detailText}`)}" ${value === selectedDate ? 'aria-current="date"' : ''}><strong>${day}</strong><small class="calendar-detail" data-calendar-detail>${esc(detailText)}</small></button>`);
   }
-  return `<section class="panel calendar-panel" data-calendar="diet"><div class="section-head"><h2>${year}年${month}月</h2><div class="actions"><button type="button" class="small" data-action="diet-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="diet-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${cells.join('')}</div><p class="muted small">${dateLabel(selectedDate)} 已选中；带标记的日期有餐食、饮食或饮水记录。</p></section>`;
+  const rows = Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => `<div class="calendar-week-row" data-calendar-row="${row}">${cells.slice(row * 7, row * 7 + 7).join('')}</div>`).join('');
+  return `<section class="panel calendar-panel" data-calendar="diet"><div class="section-head"><h2>${year}年${month}月</h2><div class="actions"><button type="button" class="small" data-action="diet-month-prev" aria-label="上个月">‹</button><button type="button" class="small" data-action="diet-month-next" aria-label="下个月">›</button></div></div><div class="calendar-weekdays">${weekdayLabels.map(label => `<span>${label}</span>`).join('')}</div><div class="calendar-grid">${rows}</div><p class="muted small">${dateLabel(selectedDate)} 已选中；带标记的日期有餐食、饮食或饮水记录。</p></section>`;
 }
 
 export function renderDiet(ctx) {

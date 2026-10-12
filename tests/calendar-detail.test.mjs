@@ -22,10 +22,9 @@ test('日历日期悬停展示详细安排，点击后展示当天内容', async
     await p.waitForTimeout(360);
     assert.match(await fitnessDay.locator('[data-calendar-detail]').textContent(), /日历详细训练/);
     assert.equal(await fitnessDay.locator('[data-calendar-detail]').isVisible(), true);
-    const hoveredScale = await fitnessDay.evaluate(node => Number.parseFloat(getComputedStyle(node).transform.match(/matrix\([^,]+, 0, 0, ([^,]+)/)?.[1] || '1'));
-    assert.ok(hoveredScale > 2, `悬停日期应放大到超过两倍，实际为 ${hoveredScale}`);
-    const compressedScale = await fitnessCalendar.locator('.calendar-day').nth(1).evaluate(node => Number.parseFloat(getComputedStyle(node).transform.match(/matrix\([^,]+, 0, 0, ([^,]+)/)?.[1] || '1'));
-    assert.ok(compressedScale < 1, `其他日期应收缩，实际为 ${compressedScale}`);
+    const expandedRow = fitnessDay.locator('..');
+    assert.ok((await expandedRow.boundingBox()).height > 58 * 2, '悬停日期所在周应扩散到超过两倍高度');
+    assert.equal(await fitnessCalendar.locator('.calendar-day').nth(1).evaluate(node => getComputedStyle(node).transform), 'none');
     await fitnessDay.click();
     assert.match(await p.locator(`[data-fitness-day="${date}"]`).textContent(), /日历详细训练/);
     assert.match(await p.locator(`[data-fitness-day="${date}"]`).textContent(), /日历悬停动作/);
