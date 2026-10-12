@@ -159,6 +159,13 @@ function render() {
   const item = pages.find(item => item[0] === page);
   app.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" href="#home"><span class="brand-icon">Z</span><span>ZHIC <small>PERSONAL SPACE</small></span></a><div class="nav-label">我的工作台</div><nav aria-label="主导航">${pages.map(([id,name,icon])=>`<a href="#${id}" ${id===page?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${name}</a>`).join('')}</nav><div class="sidebar-bottom"><span class="local-dot"></span> 本机空间 <small>专注自己的节奏</small></div></aside><main class="main"><div class="topbar"><span>我的空间 <span class="breadcrumb">/ ${item[1]}</span></span><div class="save-area"><span id="save-status" role="status">${esc(saving)}</span>${button('手动保存','manual-save','','subtle')}${button('重试保存','retry','','subtle')}<span class="avatar">Z</span></div></div><div class="page-content"><header class="page-header"><div><p class="eyebrow">${page==='home'?'TODAY, AT YOUR PACE':'MY PERSONAL WORKSPACE'}</p><h1>${page==='home'?'把今天，过成自己的节奏。':item[1]}</h1><p class="subtitle">${page==='home'?'计划、记录、慢慢前进。你的日常都在这里。':'记录当下，让每一步都有迹可循。'}</p></div></header><div id="page-body" class="${routeTransition ? 'page-enter' : ''}">${empty('此处尚无记录')}</div></div></main></div>`;
   renderPage();
+  const body = document.querySelector('#page-body');
+  if (body.classList.contains('page-enter')) {
+    const finish = event => { if (!event || event.target === body) body.classList.remove('page-enter'); };
+    body.addEventListener('animationend', finish, { once: true });
+    body.addEventListener('animationcancel', finish, { once: true });
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) finish();
+  }
   animateProgressRing(previousProgress);
   const discard=document.createElement('button');discard.type='button';discard.dataset.action='discard-failed';discard.className='ghost small';discard.textContent='放弃未保存修改';discard.hidden=!failedMutation;document.querySelector('.save-area').append(discard);
   saveStatus(saving);
@@ -211,13 +218,15 @@ function renderPage() {
 }
 window.addEventListener('hashchange', () => { const next=location.hash.slice(1)||'home';if(page==='home' && next==='plans')selectedDate=localDate();routeTransition = next !== page;page=next;render();routeTransition=false; });
 const eventControl = event => event.target && typeof event.target.closest === 'function' ? event.target.closest('button, a, [role="button"]') : null;
+const releasePress = () => document.querySelectorAll('.is-pressed').forEach(node => node.classList.remove('is-pressed'));
 document.addEventListener('pointerdown', event => { const control = eventControl(event); if (control && !control.disabled && !control.getAttribute('aria-disabled')) control.classList.add('is-pressed'); });
-document.addEventListener('pointerup', event => { eventControl(event)?.classList.remove('is-pressed'); });
-document.addEventListener('pointercancel', event => { eventControl(event)?.classList.remove('is-pressed'); });
+document.addEventListener('pointerup', releasePress);
+document.addEventListener('pointercancel', releasePress);
 document.addEventListener('pointerleave', event => { eventControl(event)?.classList.remove('is-pressed'); }, true);
 document.addEventListener('keydown', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && (event.key === 'Enter' || event.key === ' ' ) && !control.disabled) control.classList.add('is-pressed'); });
 document.addEventListener('keyup', event => { const control = event.target.closest('button, a, [role="button"]'); if (control && (event.key === 'Enter' || event.key === ' ')) control.classList.remove('is-pressed'); });
-window.addEventListener('blur', () => document.querySelectorAll('.is-pressed').forEach(node => node.classList.remove('is-pressed')));
+window.addEventListener('blur', releasePress);
+document.addEventListener('visibilitychange', () => { if (document.hidden) releasePress(); });
 document.addEventListener('click', async event => {
   const target = event.target.closest('[data-action]');
   if (!target) return;

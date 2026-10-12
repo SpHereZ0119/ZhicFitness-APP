@@ -304,7 +304,7 @@ td .actions { flex-wrap: nowrap; }
 .exercise-targets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-left: 25px; }
 .exercise-targets label { color: var(--muted); font-size: 11px; }
 .exercise-targets input { min-height: 32px; margin-top: 4px; padding: 5px 8px; font-size: 12px; }
-.calendar-panel { padding-bottom: 16px; }
+.calendar-panel { padding-bottom: 16px; contain: paint; isolation: isolate; }
 .fitness-calendar-row { grid-column: 1 / -1; width: 100%; }
 .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .calendar-weekdays { margin-bottom: 6px; color: var(--muted); font-size: 11px; text-align: center; }
@@ -401,12 +401,13 @@ details[open] > summary { margin-bottom: 12px; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes backdrop-in { from { background: rgb(24 38 31 / 0%); } to { background: rgb(24 38 31 / 34%); } }
 @keyframes backdrop-out { from { background: rgb(24 38 31 / 34%); } to { background: rgb(24 38 31 / 0%); } }
-.page-enter { animation: page-in var(--motion-standard) var(--motion-ease-out) both; }
-@keyframes page-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+.page-enter { animation: page-in var(--motion-standard) var(--motion-ease-out); }
+@keyframes page-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .page-enter, #toast.toast-enter { animation: none; }
   .dialog, dialog { transform: none; opacity: 1; }
   .progress-ring-value { transition: none; }
+  .calendar-grid .calendar-day { transform: none !important; filter: none !important; }
 }
 
 @media print {
