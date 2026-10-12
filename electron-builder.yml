@@ -10,6 +10,10 @@ asar: true
 win:
   target:
     - portable
+portable:
+  # In the pinned builder, true omits UNPACK_DIR_NAME and uses a unique
+  # per-launch $PLUGINSDIR. Concurrent launches must not replace running files.
+  unpackDirName: true
 nsis:
   oneClick: false
   perMachine: false

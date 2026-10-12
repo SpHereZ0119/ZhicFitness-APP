@@ -4,7 +4,7 @@
 
 ## 直接使用
 
-- **Windows**：运行发布页里的 `ZHIC-工作台-1.1.0-x64.exe`。这是完整独立便携软件，重启电脑后双击即可，不需要 Codex、Node.js、浏览器或服务窗口。
+- **Windows**：运行发布页里的 `ZHIC-Windows-1.1.1-x64.exe`。这是完整独立便携软件，重启电脑后双击即可，不需要 Codex、Node.js、浏览器或服务窗口。重复点击图标会回到已打开的窗口，避免两个程序争抢本地数据库。
 - **Android**：下载发布页里的 `ZHIC-Android-1.1.0.apk`，传到安卓手机安装。当前为个人验收版，支持 Android 7.0 或更新系统。
 - **iPhone**：在 Safari 打开 [ZHIC 工作台](https://spherez0119.github.io/ZhicFitness-APP/)，选择“分享 → 添加到主屏幕”。首次联网加载完成后，核心计划和记录功能可离线使用；教学视频仍需要网络。
 

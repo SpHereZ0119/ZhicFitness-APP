@@ -25,6 +25,17 @@ function createWindow() {
   windowRef.on('closed', () => { windowRef = null; });
 }
 
+// One process owns this profile's Chromium database. Repeated shortcut launches
+// must focus it rather than start another process with the same data directory.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+app.on('second-instance', () => {
+  if (!windowRef) return;
+  if (windowRef.isMinimized()) windowRef.restore();
+  windowRef.show();
+  windowRef.focus();
+});
 app.whenReady().then(() => {
   protocol.handle('zhic', async request => {
     const url = new URL(request.url);
@@ -53,3 +64,4 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+}
