@@ -31,6 +31,7 @@ export async function setup() {
 }
 export const pwExpect = playwright.expect;
 export const chromium = playwright.chromium;
+export const webkit = playwright.webkit;
 export const browserExecutable = process.env.BROWSER_PATH || (process.platform==='win32' ? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' : undefined);
 export async function stateOf(page) {return page.evaluate(async()=>{const {openDatabase,loadState}=await import('/storage.mjs');const db=await openDatabase();try{return await loadState(db);}finally{db.close();}});}
 export async function saveRecord(page, collection, values, id) {

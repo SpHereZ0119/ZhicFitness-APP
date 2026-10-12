@@ -6,7 +6,7 @@
 
 运行 `npm run desktop:build`，生成 `release/ZHIC-工作台-1.1.0-x64.exe`。这是便携版，复制到桌面后双击即可运行，不依赖 Codex、Node.js 或本地服务窗口。运行数据保存在 Electron 的本机应用数据目录中。
 
-`npm run desktop:installer` 会尝试生成 NSIS 安装器；Windows 中文路径可能导致旧版 NSIS 临时脚本失败，便携版是默认交付物。
+默认交付独立便携版 EXE，电脑重启后可直接双击。NSIS 安装器脚本暂未作为交付物。
 
 ## Android
 
@@ -20,7 +20,7 @@ APK 位于 `android/app/build/outputs/apk/debug/app-debug.apk`。在手机上安
 
 ## iPhone
 
-仓库包含 GitHub Pages 工作流。启用仓库 Settings → Pages → Source: GitHub Actions，工作流完成后打开：
+仓库 Pages 已启用 GitHub Actions，仅从默认 `main` 分支发布。`master` 保存开发记录，发布时先运行测试，再将提交快进到 `main`。请打开：
 
 ```text
 https://spherez0119.github.io/ZhicFitness-APP/
@@ -30,5 +30,6 @@ https://spherez0119.github.io/ZhicFitness-APP/
 
 ## 验证
 
-`tests/multiplatform.test.mjs` 会在子目录地址下检查 320px、390px、430px、900px 和 1440px 视口、断网刷新、本地写入和 JSON 备份。`tests/packaging-config.test.mjs` 检查桌面和 Android 配置是否继续指向同一份 `www`。
+`tests/multiplatform.test.mjs` 检查子目录部署、320/390/430/900/1440px、断网刷新和 JSON 备份；`tests/mobile-acceptance.test.mjs` 用八模块实际记录验证手机布局、长按操作、图片解码、导出导入和刷新；`tests/desktop.test.mjs` 启动实际 Electron 程序，验证保存、导出和关闭重开；`tests/native-adapter.test.mjs` 验证手机备份失败与返回键处理。
 
+可设置 `ZHIC_BROWSER_ENGINE=webkit` 单独运行手机验收测试，覆盖 Safari 内核。Android APK 已完成实际构建与签名校验。没有连接手机，本次验收未覆盖 iPhone/Android 真机安装和系统分享菜单。
