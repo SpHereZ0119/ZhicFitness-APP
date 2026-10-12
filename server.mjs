@@ -5,8 +5,8 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const publicFiles = new Set(['index.html', 'app.mjs', 'domain.mjs', 'storage.mjs', 'styles.css', 'learning.mjs', 'development.mjs', 'fitness.mjs', 'diet.mjs', 'gaming.mjs', 'settings.mjs']);
-const types = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const publicFiles = new Set(['index.html', 'app.mjs', 'domain.mjs', 'storage.mjs', 'styles.css', 'learning.mjs', 'development.mjs', 'fitness.mjs', 'diet.mjs', 'gaming.mjs', 'settings.mjs', 'runtime.mjs', 'manifest.webmanifest', 'icons/icon.svg']);
+const types = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml' };
 export function createServer() {
   return http.createServer(async (req, res) => {
     const name = new URL(req.url, 'http://localhost').pathname.slice(1) || 'index.html';

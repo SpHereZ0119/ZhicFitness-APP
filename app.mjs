@@ -6,6 +6,7 @@ import { renderDiet, handleDiet, openMealPlan } from './diet.mjs';
 import { renderGaming, handleGaming, openGame } from './gaming.mjs';
 import { renderLearning, handleLearning, openStudy } from './learning.mjs';
 import { renderSettings, handleSettings, handleSettingsChange } from './settings.mjs';
+import { enableOffline } from './runtime.mjs';
 
 const pages = [ ['home','首页预览','⌂'], ['plans','今日计划','◷'], ['learning','学习计划','▣'], ['development','开发工作','⌘'], ['fitness','健身计划','↗'], ['diet','饮食计划','◒'], ['gaming','游戏娱乐','◇'], ['settings','数据与设置','⚙'] ];
 let state = createState(), repo, saving = '正在读取', page = location.hash.slice(1) || 'home';
@@ -325,3 +326,4 @@ async function init() {
 }
 const context = {get state(){return state;},get selectedDate(){return selectedDate;},setDate(value){selectedDate=value;render();},getSafety(){return readSafety(repo.db);},replace,esc,button,empty,field,selectField,formDialog,commit,deleteDialog,planDialog,dateLabel,fmt,render,toast,mealNames};
 init();
+enableOffline();

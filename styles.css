@@ -416,3 +416,41 @@ details[open] > summary { margin-bottom: 12px; }
   .panel, .stat { break-inside: avoid; box-shadow: none; }
   body { background: #fff; }
 }
+
+/* Phones share the same modules, with a compact navigation and comfortable touch targets. */
+@media (max-width: 600px) {
+  .app-shell { display: block; }
+  .sidebar { position: sticky; z-index: 30; top: 0; height: auto; padding: calc(8px + env(safe-area-inset-top)) 8px 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .sidebar .brand, .sidebar .nav-label, .sidebar-bottom { display: none; }
+  .sidebar nav { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .sidebar nav a { flex-direction: column; justify-content: center; gap: 0; padding: 4px 0; min-height: 46px; font-size: 11px; white-space: nowrap; }
+  .sidebar nav a > span { font-size: 16px; line-height: 1.2; }
+  .main { padding: 0 12px calc(24px + env(safe-area-inset-bottom)); }
+  .topbar { flex-wrap: wrap; min-height: 76px; gap: 4px; padding: 8px 0; margin-bottom: 18px; }
+  .topbar > span { flex-basis: 100%; }
+  .save-area { flex-wrap: wrap; gap: 8px; max-width: 100%; }
+  .save-area .avatar { display: none; }
+  h1 { font-size: 22px; }
+  .page-header { margin-bottom: 18px; }
+  .panel { padding: 14px; }
+  .stat-row { gap: 8px; }
+  .stat { padding: 12px; }
+  button, .button, button.small, .tabs button { min-height: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { min-height: 44px; font-size: 16px; }
+  .toolbar input[type="date"], .toolbar select { min-width: 0; max-width: 100%; }
+  .row-main { flex-basis: 60%; overflow-wrap: anywhere; }
+  .row .actions { flex-wrap: wrap; }
+  .section-head { flex-wrap: wrap; }
+  .tabs { gap: 4px; }
+  .tabs button { padding: 6px 10px; }
+  .exercise-group-list { grid-template-columns: minmax(0, 1fr); }
+  .exercise-row { touch-action: pan-y; }
+  .exercise-actions { max-width: 100%; }
+  .calendar-day { min-height: 48px; padding: 4px; }
+  .calendar-day:hover { transform: none; }
+  .calendar-grid:has(.calendar-day:hover) .calendar-day:not(:hover) { transform: none; opacity: 1; filter: none; }
+  .calendar-day .calendar-detail { width: auto; }
+  .calendar-day:hover .calendar-detail { display: none; }
+  .dialog, dialog { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+  #toast { left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); pointer-events: none; }
+}

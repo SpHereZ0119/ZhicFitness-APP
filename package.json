@@ -1,11 +1,12 @@
 {
   "name": "zhic-life-local",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "个人本地学习与生活工作台",
   "scripts": {
     "start": "node server.mjs",
+    "build:web": "node scripts/build-web.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs"
   }
 }
