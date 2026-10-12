@@ -83,6 +83,7 @@ test('已有 v6 本地数据库首次打开时会迁移到当前数据版本', a
     const p = app.page;
     const legacy = await stateOf(p);
     legacy.version = 6;
+    delete legacy.settings.calendarHoverScale;
     await p.evaluate(async state => {
       await new Promise((resolve, reject) => {
         const request = indexedDB.deleteDatabase('zhic-life-local-v1');
@@ -103,7 +104,7 @@ test('已有 v6 本地数据库首次打开时会迁移到当前数据版本', a
     }, legacy);
     await p.goto(app.url);
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
-    assert.equal((await stateOf(p)).version, 9);
+    assert.equal((await stateOf(p)).version, 10);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

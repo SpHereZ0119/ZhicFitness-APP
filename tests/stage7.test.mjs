@@ -78,7 +78,7 @@ test('阶段7：偏好设置改变日期、周起始日和真实单位显示，�
     await p.getByLabel('饮水单位', { exact: true }).selectOption('L');
     await submit(p);
     const updated = await stateOf(p);
-    assert.deepEqual(updated.settings, { dateFormat: 'MM/DD/YYYY', weekStartsOn: 0, weightUnit: 'lb', waterUnit: 'L' });
+    assert.deepEqual(updated.settings, { dateFormat: 'MM/DD/YYYY', weekStartsOn: 0, weightUnit: 'lb', waterUnit: 'L', calendarHoverScale: 2.08 });
     assert.deepEqual(updated.sessions, original.sessions);
     assert.deepEqual(updated.waters, original.waters);
     await nav(p, '健身计划');
@@ -107,7 +107,7 @@ test('阶段7：导出完整 JSON 后恢复空库，所有模块、ID、设置�
     await nav(p, '数据与设置');
     const backup = await downloadJson(p, '导出完整备份');
     assert.equal(backup.app, 'zhic-life');
-    assert.equal(backup.version, 9);
+    assert.equal(backup.version, 10);
     assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
     assert.deepEqual(backup.data, expected);
     await putState(p, createState());

@@ -57,7 +57,7 @@ test('new state is empty, has the fixed version/settings, and every expected col
   const state = createState();
   assert.equal(validateState(state), state);
   assert.equal(COLLECTIONS.length, 17);
-  assert.deepEqual(state.settings, { dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml' });
+  assert.deepEqual(state.settings, { dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml', calendarHoverScale: 2.08 });
   for (const collection of COLLECTIONS) assert.deepEqual(state[collection], []);
   assert.deepEqual(Object.keys(state).sort(), ['version', 'settings', ...COLLECTIONS].sort());
   assert.equal(Object.hasOwn(state, 'consultations'), false);
@@ -263,11 +263,12 @@ test('version 6 routine data migrates with an empty date field', () => {
   const { state } = trainingFixture();
   const legacy = structuredClone(state);
   legacy.version = 6;
+  delete legacy.settings.calendarHoverScale;
   delete legacy.exerciseGroups;
   for (const exercise of legacy.exercises) delete exercise.groupId;
   delete legacy.routines[0].date;
   const migrated = migrateState(legacy);
-  assert.equal(migrated.version, 9);
+  assert.equal(migrated.version, 10);
   assert.equal(migrated.routines[0].groupId, null);
   assert.equal(migrated.routines[0].date, '');
 });
@@ -386,7 +387,7 @@ test('backup round-trip contains every module, settings, stable IDs and associat
   const { state } = fullFixture();
   const backup = makeBackup(freeze(state));
   assert.equal(backup.app, 'zhic-life');
-  assert.equal(backup.version, 9);
+  assert.equal(backup.version, 10);
   assert.equal(new Date(backup.exportedAt).toISOString(), backup.exportedAt);
   const restored = parseBackup(JSON.stringify(backup));
   assert.deepEqual(restored, state);

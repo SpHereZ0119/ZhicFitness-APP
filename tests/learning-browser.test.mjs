@@ -41,6 +41,7 @@ function oldState() {
   state = upsert(state, 'projects', { name: '旧版项目' });
   state = upsert(state, 'plans', { title: '旧版安排', date: '2026-10-10' });
   delete state.studyTopics; delete state.studyEntries; state.version = 1;
+  delete state.settings.calendarHoverScale;
   return state;
 }
 
@@ -140,7 +141,7 @@ test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧
     await p.goto(app.url);
     await p.locator('#save-status').filter({ hasText: '已保存' }).waitFor();
     const migrated = await stateOf(p);
-    assert.equal(migrated.version, 9);
+    assert.equal(migrated.version, 10);
     assert.deepEqual(migrated.studyTopics, []);
     assert.deepEqual(migrated.studyEntries, []);
     assert.deepEqual(migrated.memos, legacy.memos);
@@ -150,7 +151,7 @@ test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧
       const { openDatabase, readSafety } = await import('/storage.mjs');
       const db = await openDatabase(); try { return await readSafety(db); } finally { db.close(); }
     });
-    assert.equal(migratedSafety.data.version, 9);
+    assert.equal(migratedSafety.data.version, 10);
     assert.deepEqual(migratedSafety.data.memos, legacy.memos);
     await nav(p, '数据与设置');
     const legacyBackup = { app: 'zhic-life', version: 1, exportedAt: new Date().toISOString(), data: legacy };
@@ -158,7 +159,7 @@ test('真实浏览器将 v1 IndexedDB 当前数据和安全备份升级，坏旧
     await p.getByRole('dialog', { name: '备份内容预览' }).waitFor();
     await submit(p, '确认替换恢复');
     const restoredFromBackup = await stateOf(p);
-    assert.equal(restoredFromBackup.version, 9);
+    assert.equal(restoredFromBackup.version, 10);
     assert.deepEqual(restoredFromBackup.memos, legacy.memos);
     assert.deepEqual(restoredFromBackup.plans, legacy.plans);
     await nav(p, '首页预览');

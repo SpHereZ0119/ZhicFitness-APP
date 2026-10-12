@@ -9,8 +9,9 @@ test('v3动作库数据迁移后保留动作说明并补齐视频字段', () => 
   delete state.exercises[0].groupId;
   delete state.exerciseGroups;
   state.version = 3;
+  delete state.settings.calendarHoverScale;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 9);
+  assert.equal(migrated.version, 10);
   assert.deepEqual(migrated.exercises[0], { ...state.exercises[0], videoUrl: '', groupId: null });
 });
 

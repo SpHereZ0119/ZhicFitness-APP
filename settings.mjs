@@ -19,6 +19,17 @@ function preferenceSelect(ctx, label, name, choices, value) {
   return `<div class="field"><label for="${id}">${ctx.esc(label)}</label><select id="${id}" name="${name}">${options}</select></div>`;
 }
 
+function calendarScaleControl(scale) {
+  return `<div class="field full calendar-scale-control"><div class="section-head"><div><label for="preference-calendarHoverScale">日历悬停放大倍率</label><p class="muted small">拖动选择大小，也可用方向键微调。</p></div><output id="calendar-scale-value" for="preference-calendarHoverScale">${scale.toFixed(2)}×</output></div><input id="preference-calendarHoverScale" type="range" name="calendarHoverScale" min="1" max="3" step="0.04" value="${scale}" aria-describedby="calendar-scale-help"><div class="scale-labels" aria-hidden="true"><span>1× · 原尺寸</span><span>2×</span><span>3× · 大预览</span></div><div class="calendar-scale-preview" aria-hidden="true"><span>11</span><span class="scale-preview-day">12<small>当天安排</small></span><span>13</span></div><p id="calendar-scale-help" class="muted small">每格 0.04×，应用到健身与饮食日历。点击日期可查看完整安排。</p></div>`;
+}
+
+export function handleSettingsInput(event) {
+  if (event.target.id !== 'preference-calendarHoverScale') return;
+  const scale = Number(event.target.value);
+  document.querySelector('#calendar-scale-value').textContent = `${scale.toFixed(2)}×`;
+  event.target.closest('.calendar-scale-control').style.setProperty('--preview-scale', scale);
+}
+
 function countsHtml(ctx, state) {
   const counts = previewBackup(state);
   return `<div class="table-wrap full"><table><thead><tr><th>数据类别</th><th>记录数量</th></tr></thead><tbody>${COLLECTIONS.map(key => `<tr><td>${collectionNames[key]}</td><td data-backup-count="${key}">${counts[key]}</td></tr>`).join('')}</tbody></table></div>`;
@@ -48,10 +59,12 @@ export async function handleSettings(ctx, action) {
       preferenceSelect(ctx, '日期格式', 'dateFormat', dateFormats, settings.dateFormat)
       + preferenceSelect(ctx, '每周起始日', 'weekStartsOn', weekStarts, String(settings.weekStartsOn))
       + preferenceSelect(ctx, '重量单位', 'weightUnit', weightUnits, settings.weightUnit)
-      + preferenceSelect(ctx, '饮水单位', 'waterUnit', waterUnits, settings.waterUnit),
+      + preferenceSelect(ctx, '饮水单位', 'waterUnit', waterUnits, settings.waterUnit)
+      + calendarScaleControl(settings.calendarHoverScale),
       data => ctx.commit(state => setSettings(state, {
         dateFormat: data.get('dateFormat'), weekStartsOn: Number(data.get('weekStartsOn')),
         weightUnit: data.get('weightUnit'), waterUnit: data.get('waterUnit'),
+        calendarHoverScale: Number(data.get('calendarHoverScale')),
       }), '个人偏好已保存'), '单位变化只换算显示，不改变已有记录的实际数量。');
     return true;
   }

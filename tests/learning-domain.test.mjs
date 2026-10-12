@@ -16,6 +16,7 @@ function legacyState() {
   delete state.studyTopics;
   delete state.studyEntries;
   state.version = 1;
+  delete state.settings.calendarHoverScale;
   return state;
 }
 
@@ -23,10 +24,11 @@ test('v1 data and JSON backup migrate without changing any existing record', () 
   const legacy = legacyState();
   const snapshot = structuredClone(legacy);
   const migrated = migrateState(legacy);
-  assert.equal(migrated.version, 9);
+  assert.equal(migrated.version, 10);
   assert.deepEqual(migrated.studyTopics, []);
   assert.deepEqual(migrated.studyEntries, []);
-  for (const [key, value] of Object.entries(legacy)) if (key !== 'version') assert.deepEqual(migrated[key], value);
+  for (const [key, value] of Object.entries(legacy)) if (!['version', 'settings'].includes(key)) assert.deepEqual(migrated[key], value);
+  assert.deepEqual(migrated.settings, { ...legacy.settings, calendarHoverScale: 2.08 });
   assert.deepEqual(legacy, snapshot);
   const backup = { app: 'zhic-life', version: 1, exportedAt: new Date().toISOString(), data: legacy };
   assert.deepEqual(parseBackup(JSON.stringify(backup)), migrated);
@@ -38,8 +40,9 @@ test('v2 study entries migrate with an empty teaching video link', () => {
   state = upsert(state, 'studyEntries', { topicId: topic.id, date: day, title: '第一课' });
   delete state.studyEntries[0].videoUrl;
   state.version = 2;
+  delete state.settings.calendarHoverScale;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 9);
+  assert.equal(migrated.version, 10);
   assert.equal(migrated.studyEntries[0].videoUrl, '');
   assert.deepEqual(migrated.studyEntries[0].title, state.studyEntries[0].title);
 });

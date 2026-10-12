@@ -7,8 +7,9 @@ test('v5饮食记录迁移后补齐餐食图片字段', () => {
   let state = upsert(createState(), 'foods', { name: '旧餐食', portion: '一份' });
   delete state.foods[0].imageData;
   state.version = 5;
+  delete state.settings.calendarHoverScale;
   const migrated = migrateState(state);
-  assert.equal(migrated.version, 9);
+  assert.equal(migrated.version, 10);
   assert.deepEqual(migrated.foods[0], { ...state.foods[0], imageData: '' });
 });
 

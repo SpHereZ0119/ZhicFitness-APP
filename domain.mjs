@@ -1,5 +1,5 @@
 /**
- * Local application data, version 9. All records have id, createdAt, updatedAt.
+ * Local application data, version 10. All records have id, createdAt, updatedAt.
  * settings: {dateFormat:'YYYY-MM-DD'|'YYYY/MM/DD'|'MM/DD/YYYY',
  *   weekStartsOn:1|0, weightUnit:'kg'|'lb', waterUnit:'ml'|'L'}.
  * memos:{content}; plans:{title,date,time,module,priority,status,steps,link};
@@ -24,11 +24,12 @@ export const COLLECTIONS = Object.freeze([
 ]);
 const COLLECTIONS_V1 = Object.freeze(COLLECTIONS.filter(key => !['studyTopics', 'studyEntries', 'exerciseGroups'].includes(key)));
 const COLLECTIONS_V2 = COLLECTIONS;
-const CURRENT_VERSION = 9;
+const CURRENT_VERSION = 10;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const SETTINGS = Object.freeze({
   dateFormat: 'YYYY-MM-DD', weekStartsOn: 1, weightUnit: 'kg', waterUnit: 'ml',
+  calendarHoverScale: 2.08,
 });
 const LINK_TYPES = Object.freeze({
   studyEntry: { collection: 'studyEntries', module: 'study', title: 'title' },
@@ -147,12 +148,17 @@ export function createState() {
   return { version: CURRENT_VERSION, settings: { ...SETTINGS }, ...Object.fromEntries(COLLECTIONS.map(key => [key, []])) };
 }
 
-function validateSettings(settings) {
-  objectKeys(settings, Object.keys(SETTINGS), '设置');
+function validateSettings(settings, version) {
+  objectKeys(settings, Object.keys(SETTINGS).filter(key => version >= 10 || key !== 'calendarHoverScale'), '设置');
   oneOf(settings.dateFormat, ['YYYY-MM-DD', 'YYYY/MM/DD', 'MM/DD/YYYY'], '日期格式');
   oneOf(settings.weekStartsOn, [0, 1], '每周起始日');
   oneOf(settings.weightUnit, ['kg', 'lb'], '重量单位');
   oneOf(settings.waterUnit, ['ml', 'L'], '饮水单位');
+  if (version >= 10) {
+    const scale = settings.calendarHoverScale;
+    numberValue(scale, '日历放大倍率');
+    requireThat(scale >= 1 && scale <= 3 && Math.abs((scale - 1) / .04 - Math.round((scale - 1) / .04)) < 1e-8, '日历放大倍率须为 1–3，每步 0.04');
+  }
 }
 
 function validateVersion(state, version) {
@@ -160,7 +166,7 @@ function validateVersion(state, version) {
   const links = version === 1 ? Object.fromEntries(Object.entries(LINK_TYPES).filter(([type]) => type !== 'studyEntry')) : LINK_TYPES;
   objectKeys(state, ['version', 'settings', ...collections], '应用数据');
   requireThat(state.version === version, '不支持的数据版本');
-  validateSettings(state.settings);
+  validateSettings(state.settings, version);
   const identifiers = new Set();
   const identify = (value, label) => {
     textValue(value, `${label} ID`);
@@ -320,7 +326,7 @@ function validateVersion(state, version) {
           textValue(record.name, '食物名称');
           textValue(record.portion, '食物份量');
           for (const nutrient of NUTRIENTS) if (record[nutrient] !== null) numberValue(record[nutrient], nutrient);
-          if (version >= CURRENT_VERSION) imageDataValue(record.imageData);
+          if (version >= 9) imageDataValue(record.imageData);
           break;
         case 'waters':
           dateValue(record.date);
@@ -346,9 +352,14 @@ export function validateState(state) { return validateVersion(state, CURRENT_VER
 
 export function migrateState(state) {
   if (state?.version === CURRENT_VERSION) return validateState(state);
+  if (state?.version === 9) {
+    validateVersion(state, 9);
+    return validateState({ ...clone(state), version: 10,
+      settings: { ...state.settings, calendarHoverScale: SETTINGS.calendarHoverScale } });
+  }
   if (state?.version === 8) {
     validateVersion(state, 8);
-    return validateState({ ...clone(state), version: CURRENT_VERSION,
+    return migrateState({ ...clone(state), version: 9,
       routines: state.routines.map(routine => ({ ...routine, groupId: null })) });
   }
   if (state?.version === 7) {
@@ -572,7 +583,7 @@ export function parseBackup(text) {
   try { backup = JSON.parse(text); } catch { fail('备份不是有效的 JSON 文件'); }
   objectKeys(backup, ['app', 'version', 'exportedAt', 'data'], '备份');
   requireThat(backup.app === 'zhic-life', '这不是本应用的备份');
-  oneOf(backup.version, [1, 2, 3, 4, 5, CURRENT_VERSION], '备份版本');
+  oneOf(backup.version, [1, 2, 3, 4, 5, 6, 7, 8, 9, CURRENT_VERSION], '备份版本');
   isoTimestamp(backup.exportedAt, '备份生成时间');
   requireThat(backup.data?.version === backup.version, '备份版本与数据版本不一致');
   return migrateState(backup.data);

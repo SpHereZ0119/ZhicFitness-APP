@@ -1,7 +1,7 @@
 import { createState, migrateState, validateState } from './domain.mjs';
 
 export const DATABASE_NAME = 'zhic-life-local-v1';
-const DATABASE_VERSION = 9;
+const DATABASE_VERSION = 10;
 export function openDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
